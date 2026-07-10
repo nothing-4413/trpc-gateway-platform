@@ -11,7 +11,7 @@
 - 设计并实现基于 Boost.Beast 的异步 HTTP Gateway，封装统一 `HttpRequest` / `HttpResponse`，支持 request id 透传和统一 JSON 响应，并让 `io_threads` 承担网络 IO 事件循环。
 - 补齐 HTTP 连接生命周期治理，支持 Keep-Alive、读写超时、Body Limit 和 SIGINT/SIGTERM 优雅退出。
 - 实现 YAML 配置化路由系统，支持前缀匹配、最长路径优先、strip prefix 和 upstream 抽象。
-- 使用 Protobuf 定义 User / FileMeta / Task 服务接口，实现 Gateway 到本地 RPC 服务的协议转换与调度。
+- 使用 Protobuf 定义 User / FileMeta / Task 服务接口，实现 Gateway 到本地 RPC 服务的协议转换与调度，并将 UserService 扩展为可独立部署的跨进程 RPC 服务。
 - 实现 Token 鉴权过滤器，登录接口签发 HS256 JWT，业务接口统一校验 Bearer token。
 - 实现固定窗口限流，支持默认规则和路径级规则，超限统一返回 42900。
 - 实现服务治理能力，包括可取消 Deadline、重试、熔断和 fallback 降级，降低下游异常对网关的影响。
@@ -26,6 +26,8 @@
 
 HTTP Server 采用异步 accept、异步 read 和异步 write，网络事件由 `io_threads` 承担，业务逻辑再投递到 worker 线程池。连接层支持 Keep-Alive 复用，同时配置读超时、写超时和请求体大小限制，避免慢请求、慢写出或超大 body 长时间占用资源；进程收到 SIGINT/SIGTERM 后会关闭 acceptor 并停止 io_context，实现可控退出。
 
+UserService 后续被拆成了可独立运行的 `tgw_user_service` 进程。Gateway 可以通过配置选择进程内 `UserServiceImpl`，也可以使用 `RemoteUserServiceClient` 走 tRPC-like TCP JSON RPC 调用远程 UserService，从而把网关和用户服务的进程边界拆开。
+
 路由层是配置化的，配置文件里可以定义 `/api/user`、`/api/file`、`/api/task` 这样的前缀路由，每条路由可以配置 upstream、timeout 和是否 strip prefix。路由匹配时采用最长前缀优先，避免 `/api/user/admin` 被 `/api/user` 提前匹配。
 
 鉴权模块采用过滤器设计。登录接口是 public path，登录成功后生成 HS256 JWT，其他业务接口和 Admin 接口要求携带 `Authorization: Bearer <token>`。鉴权成功后，网关会把用户信息注入 `ForwardContext`，后续服务可以基于这个上下文处理业务。
@@ -38,7 +40,7 @@ HTTP Server 采用异步 accept、异步 read 和异步 write，网络事件由 
 
 项目最后在 CentOS 虚拟机里用 CMake 原生编译运行，并用 hey 做压测。`/health` 在 5000 请求、50 并发下达到约 32681 req/s；限流验证中登录接口前 20 次返回 200，后 10 次返回 429；服务治理验证中观察到了重试失败、熔断打开和 fallback 降级。
 
-如果继续扩展，我会把当前进程内 token 缓存和限流计数替换成 Redis，把本地内存数据替换成 MySQL，并把 LocalRpcUpstreamClient 替换为真正的跨进程 gRPC 或 tRPC 调用。
+如果继续扩展，我会把当前进程内 token 缓存和限流计数替换成 Redis，把本地内存数据替换成 MySQL，并把更多服务从 LocalRpcUpstreamClient 拆成独立 gRPC 或 tRPC 服务。
 
 ## 面试高频问题回答
 

@@ -15,6 +15,7 @@
 #include "tgw/observability/metrics.h"
 #include "tgw/observability/tracing.h"
 #include "tgw/service/file_meta_service.h"
+#include "tgw/service/remote_user_service_client.h"
 #include "tgw/service/task_service.h"
 #include "tgw/service/user_service.h"
 
@@ -68,7 +69,18 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
 
     auto route_manager = std::make_shared<tgw::RouteRuleManager>(config.routes);
 
-    auto user_service = std::make_shared<tgw::UserServiceImpl>();
+    tgw::UserServicePtr user_service;
+    if (config.user_service_rpc.enabled) {
+        TGW_INFO(
+            "using remote UserService at {}:{}",
+            config.user_service_rpc.host,
+            config.user_service_rpc.port
+        );
+        user_service = std::make_shared<tgw::RemoteUserServiceClient>(config.user_service_rpc);
+    } else {
+        TGW_INFO("using in-process UserService implementation");
+        user_service = std::make_shared<tgw::UserServiceImpl>();
+    }
     auto file_meta_service = std::make_shared<tgw::FileMetaServiceImpl>();
     auto task_service = std::make_shared<tgw::TaskServiceImpl>();
 
@@ -210,6 +222,12 @@ int main(int argc, char* argv[]) {
         TGW_INFO("tracing max finished spans: {}", config.tracing.max_finished_spans);
 
         TGW_INFO("request timeout: {} ms", config.gateway.request_timeout_ms);
+        TGW_INFO("remote user service enabled: {}", config.user_service_rpc.enabled);
+        TGW_INFO(
+            "remote user service endpoint: {}:{}",
+            config.user_service_rpc.host,
+            config.user_service_rpc.port
+        );
         TGW_INFO("==================================================");
 
         auto router = BuildRouter(config);

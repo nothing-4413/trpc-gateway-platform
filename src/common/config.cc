@@ -88,6 +88,34 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
         );
     }
 
+    if (root["user_service_rpc"]) {
+        auto user_service_rpc = root["user_service_rpc"];
+        config.user_service_rpc.enabled = GetOrDefault<bool>(
+            user_service_rpc,
+            "enabled",
+            config.user_service_rpc.enabled
+        );
+        config.user_service_rpc.host = GetOrDefault<std::string>(
+            user_service_rpc,
+            "host",
+            config.user_service_rpc.host
+        );
+        config.user_service_rpc.port = GetOrDefault<uint16_t>(
+            user_service_rpc,
+            "port",
+            config.user_service_rpc.port
+        );
+        config.user_service_rpc.timeout_ms = GetOrDefault<int>(
+            user_service_rpc,
+            "timeout_ms",
+            config.user_service_rpc.timeout_ms
+        );
+
+        if (config.user_service_rpc.timeout_ms <= 0) {
+            throw std::runtime_error("user_service_rpc.timeout_ms must be positive");
+        }
+    }
+
     config.auth.enabled = config.gateway.enable_auth;
 
     if (root["auth"]) {

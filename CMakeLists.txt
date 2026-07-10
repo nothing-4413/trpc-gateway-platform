@@ -94,6 +94,7 @@ add_executable(tgw_gateway
     src/governance/governance_upstream_client.cc
     src/observability/metrics.cc
     src/observability/tracing.cc
+    src/service/remote_user_service_client.cc
 )
 
 target_include_directories(tgw_gateway
@@ -129,6 +130,27 @@ target_link_libraries(tgw_rpc_demo
         spdlog::spdlog
 )
 
+add_executable(tgw_user_service
+    src/service/user_service_server_main.cc
+    src/common/logger.cc
+)
+
+target_include_directories(tgw_user_service
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_link_libraries(tgw_user_service
+    PRIVATE
+        tgw_rpc_core
+        tgw_proto
+        spdlog::spdlog
+        nlohmann_json::nlohmann_json
+        Boost::system
+        Threads::Threads
+)
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(tgw_gateway PRIVATE
         -Wall
@@ -137,6 +159,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     )
 
     target_compile_options(tgw_rpc_demo PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+    )
+
+    target_compile_options(tgw_user_service PRIVATE
         -Wall
         -Wextra
         -Wpedantic

@@ -56,6 +56,13 @@ HttpResponse AdminHandler::Runtime(const HttpRequest& request) const {
     data << "\"enable_tracing\":" << BoolToJson(config_.gateway.enable_tracing);
     data << "},";
 
+    data << "\"user_service_rpc\":{";
+    data << "\"enabled\":" << BoolToJson(config_.user_service_rpc.enabled) << ",";
+    data << "\"host\":\"" << JsonEscape(config_.user_service_rpc.host) << "\",";
+    data << "\"port\":" << config_.user_service_rpc.port << ",";
+    data << "\"timeout_ms\":" << config_.user_service_rpc.timeout_ms;
+    data << "},";
+
     data << "\"auth\":{";
     data << "\"enabled\":" << BoolToJson(config_.auth.enabled) << ",";
     data << "\"token_ttl_seconds\":" << config_.auth.token_ttl_seconds;
@@ -169,6 +176,8 @@ HttpResponse AdminHandler::Features(const HttpRequest& request) const {
          << BoolToJson(config_.governance.circuit_breaker.enabled) << ",";
     data << "\"fallback_enabled\":"
          << BoolToJson(config_.governance.fallback.enabled) << ",";
+    data << "\"remote_user_service_enabled\":"
+         << BoolToJson(config_.user_service_rpc.enabled) << ",";
     data << "\"tracing_enabled\":" << BoolToJson(config_.tracing.enabled) << ",";
     data << "\"metrics_enabled\":true,";
     data << "\"admin_enabled\":true";

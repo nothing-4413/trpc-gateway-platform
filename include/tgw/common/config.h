@@ -35,6 +35,13 @@ struct GatewayConfig {
     int request_timeout_ms = 3000;
 };
 
+struct UserServiceRpcConfig {
+    bool enabled = false;
+    std::string host = "127.0.0.1";
+    uint16_t port = 9001;
+    int timeout_ms = 1000;
+};
+
 struct AuthConfig {
     bool enabled = true;
     std::string jwt_secret = "tgw-dev-secret";
@@ -114,6 +121,7 @@ struct AppConfig {
     RuntimeConfig runtime;
     LogConfig log;
     GatewayConfig gateway;
+    UserServiceRpcConfig user_service_rpc;
     AuthConfig auth;
     RateLimitConfig rate_limit;
     GovernanceConfig governance;

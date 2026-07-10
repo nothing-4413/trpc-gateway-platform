@@ -8,7 +8,7 @@
 
 - HTTP Gateway：基于 Boost.Asio / Boost.Beast 实现异步 HTTP 接入，`io_threads` 负责网络 IO，`worker_threads` 负责业务分发，支持 Keep-Alive、读写超时、Body Limit 和优雅退出。
 - 配置化路由：通过 YAML 配置前缀路由、上游服务、超时时间和路径裁剪。
-- RPC 服务抽象：使用 Protobuf 定义 UserService、FileMetaService、TaskService。
+- RPC 服务抽象：使用 Protobuf 定义 UserService、FileMetaService、TaskService，UserService 支持本地实现与跨进程 tRPC-like TCP RPC 实现切换。
 - Gateway 到 Local RPC：将 HTTP JSON / Query 转换为 Protobuf 请求并调用本地服务实现。
 - Token 鉴权：登录签发 HS256 JWT，网关统一校验 Authorization Bearer token。
 - 固定窗口限流：支持默认规则与路径级规则，超限返回 42900。
@@ -66,6 +66,7 @@ GatewayHandler
 16. 异步 HTTP Server：`io_threads` 真正承担网络 IO
 17. HTTP 连接生命周期治理：Keep-Alive、读写超时、Body Limit、优雅退出
 18. 可取消 Deadline：Deadline 状态贯穿 Gateway、治理层、本地 RPC 和服务实现
+19. 跨进程 UserService：独立 `tgw_user_service` 进程 + Gateway 远程 RPC client
 
 ## 构建运行
 
@@ -84,6 +85,14 @@ pkill -9 tgw_gateway 2>/dev/null || true
 nohup ./build/tgw_gateway --config=configs/gateway.yaml > gateway.log 2>&1 &
 sleep 1
 curl -v --max-time 3 http://127.0.0.1:8080/health
+```
+
+跨进程 UserService 验证：
+
+```bash
+./build/tgw_user_service --host=0.0.0.0 --port=9001
+# 将 configs/gateway.yaml 中 user_service_rpc.enabled 改为 true 后启动网关
+./build/tgw_gateway --config=configs/gateway.yaml
 ```
 
 健康检查成功返回：

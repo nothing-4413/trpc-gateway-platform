@@ -22,6 +22,12 @@ gateway:
   enable_tracing: true
   request_timeout_ms: 1000
 
+user_service_rpc:
+  enabled: false
+  host: "127.0.0.1"
+  port: 9001
+  timeout_ms: 1000
+
 auth:
   enabled: true
   jwt_secret: "tgw-demo-secret"
