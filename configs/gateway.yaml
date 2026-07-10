@@ -39,6 +39,25 @@ rate_limit:
     - path: "/api/task"
       max_requests: 100
 
+governance:
+  enabled: true
+
+  retry:
+    enabled: true
+    max_attempts: 2
+    backoff_ms: 20
+    retry_non_idempotent: false
+
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    open_seconds: 10
+    half_open_success_threshold: 2
+
+  fallback:
+    enabled: true
+    message: "service degraded, fallback response returned"
+
 routes:
   - name: "user-service-route"
     match_type: "prefix"

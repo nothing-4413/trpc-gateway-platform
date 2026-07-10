@@ -1,7 +1,8 @@
-#include "tgw/admin/admin_handler.h"
 #include "tgw/common/config.h"
 #include "tgw/common/logger.h"
 #include "tgw/common/status.h"
+
+#include "tgw/admin/admin_handler.h"
 #include "tgw/auth/auth_filter.h"
 #include "tgw/auth/token_service.h"
 #include "tgw/gateway/gateway_handler.h"
@@ -9,12 +10,12 @@
 #include "tgw/gateway/local_rpc_upstream_client.h"
 #include "tgw/gateway/route_rule.h"
 #include "tgw/gateway/router.h"
+#include "tgw/governance/governance_upstream_client.h"
 #include "tgw/governance/rate_limit_filter.h"
 #include "tgw/observability/metrics.h"
 #include "tgw/service/file_meta_service.h"
 #include "tgw/service/task_service.h"
 #include "tgw/service/user_service.h"
-#include "tgw/admin/admin_handler.h"
 
 #include <exception>
 #include <iostream>
@@ -43,20 +44,28 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
     auto router = std::make_shared<tgw::Router>();
 
     auto route_manager = std::make_shared<tgw::RouteRuleManager>(config.routes);
+
     auto user_service = std::make_shared<tgw::UserServiceImpl>();
     auto file_meta_service = std::make_shared<tgw::FileMetaServiceImpl>();
     auto task_service = std::make_shared<tgw::TaskServiceImpl>();
+
     auto token_service = std::make_shared<tgw::TokenService>(config.auth);
     auto auth_filter = std::make_shared<tgw::AuthFilter>(config.auth, token_service);
     auto rate_limit_filter = std::make_shared<tgw::RateLimitFilter>(config.rate_limit);
     auto metrics = std::make_shared<tgw::MetricsRegistry>();
 
-    auto upstream_client = std::make_shared<tgw::LocalRpcUpstreamClient>(
+    auto local_upstream_client = std::make_shared<tgw::LocalRpcUpstreamClient>(
         user_service,
         file_meta_service,
         task_service,
         token_service
     );
+
+    auto upstream_client = std::make_shared<tgw::GovernanceUpstreamClient>(
+        local_upstream_client,
+        config.governance
+    );
+
     auto gateway_handler = std::make_shared<tgw::GatewayHandler>(
         route_manager,
         upstream_client,
@@ -64,6 +73,7 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         rate_limit_filter,
         metrics
     );
+
     auto admin_handler = std::make_shared<tgw::AdminHandler>(
         config,
         router,
@@ -87,66 +97,6 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         return rsp;
     });
 
-    router->AddRoute("GET", "/routes", [router, route_manager](const tgw::HttpRequest& req) {
-        (void)req;
-
-        auto exact_routes = router->ListRoutes();
-        auto gateway_routes = route_manager->ListRoutes();
-
-        std::ostringstream data;
-        data << "{";
-
-        data << "\"exact_routes\":[";
-        for (size_t i = 0; i < exact_routes.size(); ++i) {
-            if (i > 0) {
-                data << ",";
-            }
-            data << "\"" << tgw::JsonEscape(exact_routes[i]) << "\"";
-        }
-        data << "],";
-
-        data << "\"gateway_routes\":[";
-        for (size_t i = 0; i < gateway_routes.size(); ++i) {
-            if (i > 0) {
-                data << ",";
-            }
-
-            const auto& route = gateway_routes[i];
-
-            data << "{";
-            data << "\"name\":\"" << tgw::JsonEscape(route.name) << "\",";
-            data << "\"match_type\":\"" << tgw::JsonEscape(route.match_type) << "\",";
-            data << "\"path\":\"" << tgw::JsonEscape(route.path) << "\",";
-            data << "\"upstream\":\"" << tgw::JsonEscape(route.upstream) << "\",";
-            data << "\"strip_prefix\":" << (route.strip_prefix ? "true" : "false") << ",";
-            data << "\"timeout_ms\":" << route.timeout_ms;
-            data << "}";
-        }
-        data << "]";
-
-        data << "}";
-
-        tgw::HttpResponse rsp;
-        rsp.status = 200;
-        rsp.content_type = "application/json";
-        rsp.body = tgw::ApiResponse::Success(data.str()).ToJson();
-
-        return rsp;
-    });
-
-    router->AddRoute("GET", "/metrics", [metrics](const tgw::HttpRequest& req) {
-        (void)req;
-        return tgw::BuildPrometheusResponse(metrics);
-    });
-
-    router->AddRoute("GET", "/admin/runtime", [admin_handler](const tgw::HttpRequest& req) {
-        return admin_handler->Runtime(req);
-    });
-
-    router->AddRoute("GET", "/admin/routes", [admin_handler](const tgw::HttpRequest& req) {
-        return admin_handler->Routes(req);
-    });
-    
     router->AddRoute("GET", "/routes", [admin_handler](const tgw::HttpRequest& req) {
         return admin_handler->Routes(req);
     });
@@ -162,8 +112,12 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
     router->AddRoute("GET", "/admin/features", [admin_handler](const tgw::HttpRequest& req) {
         return admin_handler->Features(req);
     });
-    // 所有没有精确匹配到的请求都进入 GatewayHandler。
-    // GatewayHandler 内部会根据配置路由决定转发到哪个 upstream。
+
+    router->AddRoute("GET", "/metrics", [metrics](const tgw::HttpRequest& req) {
+        (void)req;
+        return tgw::BuildPrometheusResponse(metrics);
+    });
+
     router->SetFallback([gateway_handler](const tgw::HttpRequest& req) {
         return gateway_handler->Handle(req);
     });
@@ -195,6 +149,15 @@ int main(int argc, char* argv[]) {
         TGW_INFO("token ttl: {} seconds", config.auth.token_ttl_seconds);
         TGW_INFO("rate limit window: {} seconds", config.rate_limit.window_seconds);
         TGW_INFO("rate limit default max requests: {}", config.rate_limit.default_max_requests);
+        TGW_INFO("governance enabled: {}", config.governance.enabled);
+        TGW_INFO("retry enabled: {}", config.governance.retry.enabled);
+        TGW_INFO("retry max attempts: {}", config.governance.retry.max_attempts);
+        TGW_INFO("circuit breaker enabled: {}", config.governance.circuit_breaker.enabled);
+        TGW_INFO(
+            "circuit breaker failure threshold: {}",
+            config.governance.circuit_breaker.failure_threshold
+        );
+        TGW_INFO("fallback enabled: {}", config.governance.fallback.enabled);
         TGW_INFO("==================================================");
 
         auto router = BuildRouter(config);

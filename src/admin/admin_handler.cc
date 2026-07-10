@@ -3,6 +3,8 @@
 #include "tgw/common/status.h"
 
 #include <sstream>
+#include <utility>
+#include <vector>
 
 namespace tgw {
 
@@ -37,6 +39,7 @@ HttpResponse AdminHandler::Runtime(const HttpRequest& request) const {
     std::ostringstream data;
 
     data << "{";
+
     data << "\"service\":{";
     data << "\"name\":\"" << JsonEscape(config_.server.name) << "\",";
     data << "\"host\":\"" << JsonEscape(config_.server.host) << "\",";
@@ -62,6 +65,37 @@ HttpResponse AdminHandler::Runtime(const HttpRequest& request) const {
     data << "\"enabled\":" << BoolToJson(config_.rate_limit.enabled) << ",";
     data << "\"window_seconds\":" << config_.rate_limit.window_seconds << ",";
     data << "\"default_max_requests\":" << config_.rate_limit.default_max_requests;
+    data << "},";
+
+    data << "\"governance\":{";
+    data << "\"enabled\":" << BoolToJson(config_.governance.enabled) << ",";
+
+    data << "\"retry\":{";
+    data << "\"enabled\":" << BoolToJson(config_.governance.retry.enabled) << ",";
+    data << "\"max_attempts\":" << config_.governance.retry.max_attempts << ",";
+    data << "\"backoff_ms\":" << config_.governance.retry.backoff_ms << ",";
+    data << "\"retry_non_idempotent\":"
+         << BoolToJson(config_.governance.retry.retry_non_idempotent);
+    data << "},";
+
+    data << "\"circuit_breaker\":{";
+    data << "\"enabled\":"
+         << BoolToJson(config_.governance.circuit_breaker.enabled) << ",";
+    data << "\"failure_threshold\":"
+         << config_.governance.circuit_breaker.failure_threshold << ",";
+    data << "\"open_seconds\":"
+         << config_.governance.circuit_breaker.open_seconds << ",";
+    data << "\"half_open_success_threshold\":"
+         << config_.governance.circuit_breaker.half_open_success_threshold;
+    data << "},";
+
+    data << "\"fallback\":{";
+    data << "\"enabled\":"
+         << BoolToJson(config_.governance.fallback.enabled) << ",";
+    data << "\"message\":\""
+         << JsonEscape(config_.governance.fallback.message) << "\"";
+    data << "}";
+
     data << "}";
 
     data << "}";
@@ -73,6 +107,7 @@ HttpResponse AdminHandler::Routes(const HttpRequest& request) const {
     (void)request;
 
     std::ostringstream data;
+
     auto exact_routes = router_ ? router_->ListRoutes() : std::vector<std::string>{};
     auto gateway_routes = route_manager_ ? route_manager_->ListRoutes() : std::vector<RouteConfig>{};
 
@@ -119,6 +154,12 @@ HttpResponse AdminHandler::Features(const HttpRequest& request) const {
     data << "{";
     data << "\"auth_enabled\":" << BoolToJson(config_.auth.enabled) << ",";
     data << "\"rate_limit_enabled\":" << BoolToJson(config_.rate_limit.enabled) << ",";
+    data << "\"governance_enabled\":" << BoolToJson(config_.governance.enabled) << ",";
+    data << "\"retry_enabled\":" << BoolToJson(config_.governance.retry.enabled) << ",";
+    data << "\"circuit_breaker_enabled\":"
+         << BoolToJson(config_.governance.circuit_breaker.enabled) << ",";
+    data << "\"fallback_enabled\":"
+         << BoolToJson(config_.governance.fallback.enabled) << ",";
     data << "\"tracing_enabled\":" << BoolToJson(config_.gateway.enable_tracing) << ",";
     data << "\"metrics_enabled\":true,";
     data << "\"admin_enabled\":true";

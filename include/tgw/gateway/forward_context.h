@@ -39,8 +39,6 @@ struct ForwardContext {
         ctx.body = request.body;
         ctx.timeout_ms = match.route.timeout_ms;
 
-        // Header 透传策略。
-        // 当前只透传部分安全 header，后续鉴权和 tracing 会继续扩展。
         auto copy_header = [&](const std::string& key) {
             auto it = request.headers.find(key);
             if (it != request.headers.end()) {
@@ -54,6 +52,12 @@ struct ForwardContext {
         copy_header("X-User-Id");
         copy_header("X-Username");
         copy_header("Content-Type");
+
+        // Debug Header：仅用于本地验证治理能力。
+        // X-Debug-Sleep-Ms 可模拟慢调用。
+        // X-Debug-Force-Status 可模拟上游 5xx。
+        copy_header("X-Debug-Sleep-Ms");
+        copy_header("X-Debug-Force-Status");
 
         // 无论客户端是否传入，都保证后端能拿到 request id。
         ctx.headers["X-Request-Id"] = request.request_id;

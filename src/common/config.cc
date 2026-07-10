@@ -62,7 +62,6 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
         );
     }
 
-    // 读取 routes 配置
     config.auth.enabled = config.gateway.enable_auth;
 
     if (root["auth"]) {
@@ -82,11 +81,13 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
             }
 
             config.auth.public_paths.clear();
+
             for (const auto& item : public_paths) {
                 auto path_item = item.as<std::string>();
                 if (path_item.empty()) {
                     throw std::runtime_error("auth.public_paths cannot contain empty path");
                 }
+
                 config.auth.public_paths.push_back(path_item);
             }
         }
@@ -96,7 +97,11 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
 
     if (root["rate_limit"]) {
         auto rate_limit = root["rate_limit"];
-        config.rate_limit.enabled = GetOrDefault<bool>(rate_limit, "enabled", config.rate_limit.enabled);
+        config.rate_limit.enabled = GetOrDefault<bool>(
+            rate_limit,
+            "enabled",
+            config.rate_limit.enabled
+        );
         config.rate_limit.window_seconds = GetOrDefault<int>(
             rate_limit,
             "window_seconds",
@@ -115,20 +120,123 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
             }
 
             config.rate_limit.rules.clear();
+
             for (const auto& item : rules) {
                 RateLimitRuleConfig rule;
                 rule.path = GetOrDefault<std::string>(item, "path", "");
-                rule.max_requests = GetOrDefault<int>(item, "max_requests", config.rate_limit.default_max_requests);
+                rule.max_requests = GetOrDefault<int>(
+                    item,
+                    "max_requests",
+                    config.rate_limit.default_max_requests
+                );
 
                 if (rule.path.empty()) {
                     throw std::runtime_error("rate_limit rule path cannot be empty");
                 }
+
                 if (rule.max_requests <= 0) {
                     throw std::runtime_error("rate_limit max_requests must be positive, path=" + rule.path);
                 }
 
                 config.rate_limit.rules.push_back(rule);
             }
+        }
+    }
+
+    if (root["governance"]) {
+        auto governance = root["governance"];
+
+        config.governance.enabled = GetOrDefault<bool>(
+            governance,
+            "enabled",
+            config.governance.enabled
+        );
+
+        if (governance["retry"]) {
+            auto retry = governance["retry"];
+
+            config.governance.retry.enabled = GetOrDefault<bool>(
+                retry,
+                "enabled",
+                config.governance.retry.enabled
+            );
+            config.governance.retry.max_attempts = GetOrDefault<int>(
+                retry,
+                "max_attempts",
+                config.governance.retry.max_attempts
+            );
+            config.governance.retry.backoff_ms = GetOrDefault<int>(
+                retry,
+                "backoff_ms",
+                config.governance.retry.backoff_ms
+            );
+            config.governance.retry.retry_non_idempotent = GetOrDefault<bool>(
+                retry,
+                "retry_non_idempotent",
+                config.governance.retry.retry_non_idempotent
+            );
+
+            if (config.governance.retry.max_attempts <= 0) {
+                throw std::runtime_error("governance.retry.max_attempts must be positive");
+            }
+
+            if (config.governance.retry.backoff_ms < 0) {
+                throw std::runtime_error("governance.retry.backoff_ms cannot be negative");
+            }
+        }
+
+        if (governance["circuit_breaker"]) {
+            auto circuit_breaker = governance["circuit_breaker"];
+
+            config.governance.circuit_breaker.enabled = GetOrDefault<bool>(
+                circuit_breaker,
+                "enabled",
+                config.governance.circuit_breaker.enabled
+            );
+            config.governance.circuit_breaker.failure_threshold = GetOrDefault<int>(
+                circuit_breaker,
+                "failure_threshold",
+                config.governance.circuit_breaker.failure_threshold
+            );
+            config.governance.circuit_breaker.open_seconds = GetOrDefault<int>(
+                circuit_breaker,
+                "open_seconds",
+                config.governance.circuit_breaker.open_seconds
+            );
+            config.governance.circuit_breaker.half_open_success_threshold = GetOrDefault<int>(
+                circuit_breaker,
+                "half_open_success_threshold",
+                config.governance.circuit_breaker.half_open_success_threshold
+            );
+
+            if (config.governance.circuit_breaker.failure_threshold <= 0) {
+                throw std::runtime_error("governance.circuit_breaker.failure_threshold must be positive");
+            }
+
+            if (config.governance.circuit_breaker.open_seconds <= 0) {
+                throw std::runtime_error("governance.circuit_breaker.open_seconds must be positive");
+            }
+
+            if (config.governance.circuit_breaker.half_open_success_threshold <= 0) {
+                throw std::runtime_error(
+                    "governance.circuit_breaker.half_open_success_threshold must be positive"
+                );
+            }
+        }
+
+        if (governance["fallback"]) {
+            auto fallback = governance["fallback"];
+
+            config.governance.fallback.enabled = GetOrDefault<bool>(
+                fallback,
+                "enabled",
+                config.governance.fallback.enabled
+            );
+            config.governance.fallback.message = GetOrDefault<std::string>(
+                fallback,
+                "message",
+                config.governance.fallback.message
+            );
         }
     }
 
@@ -159,6 +267,10 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
 
             if (route.upstream.empty()) {
                 throw std::runtime_error("route upstream cannot be empty, route=" + route.name);
+            }
+
+            if (route.timeout_ms <= 0) {
+                throw std::runtime_error("route timeout_ms must be positive, route=" + route.name);
             }
 
             config.routes.push_back(route);

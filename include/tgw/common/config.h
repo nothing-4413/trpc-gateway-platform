@@ -51,8 +51,43 @@ struct RateLimitConfig {
     std::vector<RateLimitRuleConfig> rules;
 };
 
+// 重试配置。
+// max_attempts 表示总调用次数，包括第一次正常调用。
+// 例如 max_attempts = 2 表示：首次调用 + 1 次重试。
+struct RetryConfig {
+    bool enabled = true;
+    int max_attempts = 2;
+    int backoff_ms = 20;
+
+    // 默认不重试 POST/PUT/DELETE，避免非幂等请求被重复执行。
+    bool retry_non_idempotent = false;
+};
+
+// 熔断配置。
+// 连续失败达到 failure_threshold 后，熔断器进入 OPEN 状态。
+// open_seconds 后进入 HALF_OPEN 半开探测状态。
+struct CircuitBreakerConfig {
+    bool enabled = true;
+    int failure_threshold = 5;
+    int open_seconds = 10;
+    int half_open_success_threshold = 2;
+};
+
+// 降级配置。
+// 熔断打开或重试失败后，可以返回可控 fallback 响应。
+struct FallbackConfig {
+    bool enabled = true;
+    std::string message = "service degraded";
+};
+
+struct GovernanceConfig {
+    bool enabled = true;
+    RetryConfig retry;
+    CircuitBreakerConfig circuit_breaker;
+    FallbackConfig fallback;
+};
+
 // 单条路由配置。
-// 这里先支持 prefix 匹配，后续可以扩展 exact、regex、header、method 等匹配方式。
 struct RouteConfig {
     std::string name;
     std::string match_type = "prefix";
@@ -69,8 +104,8 @@ struct AppConfig {
     GatewayConfig gateway;
     AuthConfig auth;
     RateLimitConfig rate_limit;
+    GovernanceConfig governance;
 
-    // 网关路由规则列表
     std::vector<RouteConfig> routes;
 };
 

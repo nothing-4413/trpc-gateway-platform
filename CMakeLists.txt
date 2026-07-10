@@ -30,7 +30,6 @@ find_package(Boost REQUIRED COMPONENTS system)
 find_package(Protobuf REQUIRED)
 find_package(Threads REQUIRED)
 
-
 set(PROTO_FILES
     ${PROJECT_SOURCE_DIR}/proto/common.proto
     ${PROJECT_SOURCE_DIR}/proto/user.proto
@@ -87,6 +86,7 @@ add_executable(tgw_gateway
     src/gateway/gateway_handler.cc
     src/gateway/local_rpc_upstream_client.cc
     src/governance/rate_limit_filter.cc
+    src/governance/governance_upstream_client.cc
     src/observability/metrics.cc
 )
 
