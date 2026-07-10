@@ -18,6 +18,13 @@ gateway:
   enable_tracing: true
   request_timeout_ms: 3000
 
+auth:
+  enabled: true
+  jwt_secret: "tgw-local-dev-secret"
+  token_ttl_seconds: 7200
+  public_paths:
+    - "/api/user/login"
+
 routes:
   - name: "user-service-route"
     match_type: "prefix"

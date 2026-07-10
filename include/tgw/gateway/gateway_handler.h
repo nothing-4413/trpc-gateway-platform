@@ -1,5 +1,6 @@
 #pragma once
 
+#include "tgw/auth/auth_filter.h"
 #include "tgw/gateway/route_rule.h"
 #include "tgw/gateway/upstream_client.h"
 
@@ -14,7 +15,8 @@ class GatewayHandler {
 public:
     GatewayHandler(
         std::shared_ptr<RouteRuleManager> route_manager,
-        UpstreamClientPtr upstream_client
+        UpstreamClientPtr upstream_client,
+        AuthFilterPtr auth_filter
     );
 
     HttpResponse Handle(const HttpRequest& request);
@@ -22,6 +24,7 @@ public:
 private:
     std::shared_ptr<RouteRuleManager> route_manager_;
     UpstreamClientPtr upstream_client_;
+    AuthFilterPtr auth_filter_;
 };
 
 } // namespace tgw

@@ -75,6 +75,8 @@ target_link_libraries(tgw_rpc_core
 
 add_executable(tgw_gateway
     src/main.cc
+    src/auth/auth_filter.cc
+    src/auth/token_service.cc
     src/common/config.cc
     src/common/logger.cc
     src/gateway/router.cc
@@ -101,6 +103,7 @@ target_link_libraries(tgw_gateway
 
 add_executable(tgw_rpc_demo
     src/rpc/rpc_demo.cc
+    src/common/logger.cc
 )
 
 target_include_directories(tgw_rpc_demo

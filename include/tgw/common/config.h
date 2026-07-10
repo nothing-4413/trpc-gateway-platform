@@ -30,6 +30,15 @@ struct GatewayConfig {
     int request_timeout_ms = 3000;
 };
 
+struct AuthConfig {
+    bool enabled = true;
+    std::string jwt_secret = "tgw-dev-secret";
+    int token_ttl_seconds = 7200;
+    std::vector<std::string> public_paths = {
+        "/api/user/login"
+    };
+};
+
 // 单条路由配置。
 // 这里先支持 prefix 匹配，后续可以扩展 exact、regex、header、method 等匹配方式。
 struct RouteConfig {
@@ -46,6 +55,7 @@ struct AppConfig {
     RuntimeConfig runtime;
     LogConfig log;
     GatewayConfig gateway;
+    AuthConfig auth;
 
     // 网关路由规则列表
     std::vector<RouteConfig> routes;

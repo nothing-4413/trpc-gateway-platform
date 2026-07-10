@@ -329,11 +329,13 @@ std::string JsonPair(const std::string& key, const std::string& value, bool stri
 LocalRpcUpstreamClient::LocalRpcUpstreamClient(
     UserServicePtr user_service,
     FileMetaServicePtr file_meta_service,
-    TaskServicePtr task_service
+    TaskServicePtr task_service,
+    TokenServicePtr token_service
 )
     : user_service_(std::move(user_service)),
       file_meta_service_(std::move(file_meta_service)),
-      task_service_(std::move(task_service)) {}
+      task_service_(std::move(task_service)),
+      token_service_(std::move(token_service)) {}
 
 HttpResponse LocalRpcUpstreamClient::Forward(const ForwardContext& ctx) {
     try {
@@ -374,12 +376,17 @@ HttpResponse LocalRpcUpstreamClient::ForwardUserService(const ForwardContext& ct
         req.set_password(GetString(body, "password"));
 
         auto rsp = user_service_->Login(rpc_ctx, req);
+        std::string token = rsp.token();
+        if (rsp.meta().code() == tgw::rpc::RPC_OK && token_service_) {
+            token = token_service_->IssueToken(rsp.user_id(), rsp.username(), ctx.request_id);
+        }
 
         std::ostringstream data;
         data << "{"
              << JsonPair("user_id", std::to_string(rsp.user_id()), false) << ","
              << JsonPair("username", rsp.username(), true) << ","
-             << JsonPair("token", rsp.token(), true)
+             << JsonPair("token", token, true) << ","
+             << JsonPair("token_type", "Bearer", true)
              << "}";
 
         return BuildRpcResponse(rsp.meta(), data.str(), ctx.request_id);
@@ -389,7 +396,11 @@ HttpResponse LocalRpcUpstreamClient::ForwardUserService(const ForwardContext& ct
         auto query = ParseQuery(ctx.query);
 
         tgw::rpc::GetProfileRequest req;
-        req.set_user_id(GetInt64(query, "user_id"));
+        int64_t user_id = GetInt64(query, "user_id");
+        if (user_id == 0 && !rpc_ctx.user_id.empty()) {
+            user_id = std::stoll(rpc_ctx.user_id);
+        }
+        req.set_user_id(user_id);
 
         auto rsp = user_service_->GetProfile(rpc_ctx, req);
 
@@ -417,7 +428,11 @@ HttpResponse LocalRpcUpstreamClient::ForwardFileMetaService(const ForwardContext
         req.set_filename(GetString(body, "filename"));
         req.set_size(GetInt64(body, "size"));
         req.set_content_type(GetString(body, "content_type"));
-        req.set_owner_user_id(GetInt64(body, "owner_user_id"));
+        int64_t owner_user_id = GetInt64(body, "owner_user_id");
+        if (owner_user_id == 0 && !rpc_ctx.user_id.empty()) {
+            owner_user_id = std::stoll(rpc_ctx.user_id);
+        }
+        req.set_owner_user_id(owner_user_id);
 
         auto rsp = file_meta_service_->CreateFileMeta(rpc_ctx, req);
 
@@ -460,7 +475,11 @@ HttpResponse LocalRpcUpstreamClient::ForwardTaskService(const ForwardContext& ct
         tgw::rpc::CreateTaskRequest req;
         req.set_task_type(GetString(body, "task_type"));
         req.set_payload(GetString(body, "payload"));
-        req.set_user_id(GetInt64(body, "user_id"));
+        int64_t user_id = GetInt64(body, "user_id");
+        if (user_id == 0 && !rpc_ctx.user_id.empty()) {
+            user_id = std::stoll(rpc_ctx.user_id);
+        }
+        req.set_user_id(user_id);
 
         auto rsp = task_service_->CreateTask(rpc_ctx, req);
 

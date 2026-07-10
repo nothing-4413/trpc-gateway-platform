@@ -52,6 +52,7 @@ struct ForwardContext {
         copy_header("X-Request-Id");
         copy_header("X-Trace-Id");
         copy_header("X-User-Id");
+        copy_header("X-Username");
         copy_header("Content-Type");
 
         // 无论客户端是否传入，都保证后端能拿到 request id。

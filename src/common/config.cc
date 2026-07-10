@@ -63,6 +63,35 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
     }
 
     // 读取 routes 配置
+    config.auth.enabled = config.gateway.enable_auth;
+
+    if (root["auth"]) {
+        auto auth = root["auth"];
+        config.auth.enabled = GetOrDefault<bool>(auth, "enabled", config.auth.enabled);
+        config.auth.jwt_secret = GetOrDefault<std::string>(auth, "jwt_secret", config.auth.jwt_secret);
+        config.auth.token_ttl_seconds = GetOrDefault<int>(
+            auth,
+            "token_ttl_seconds",
+            config.auth.token_ttl_seconds
+        );
+
+        if (auth["public_paths"]) {
+            const auto& public_paths = auth["public_paths"];
+            if (!public_paths.IsSequence()) {
+                throw std::runtime_error("auth.public_paths must be a yaml sequence");
+            }
+
+            config.auth.public_paths.clear();
+            for (const auto& item : public_paths) {
+                auto path_item = item.as<std::string>();
+                if (path_item.empty()) {
+                    throw std::runtime_error("auth.public_paths cannot contain empty path");
+                }
+                config.auth.public_paths.push_back(path_item);
+            }
+        }
+    }
+
     if (root["routes"]) {
         const auto& routes = root["routes"];
 
