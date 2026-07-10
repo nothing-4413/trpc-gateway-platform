@@ -34,6 +34,9 @@ add_executable(tgw_gateway
     src/common/logger.cc
     src/gateway/router.cc
     src/gateway/http_server.cc
+    src/gateway/route_rule.cc
+    src/gateway/upstream_client.cc
+    src/gateway/gateway_handler.cc
 )
 
 target_include_directories(tgw_gateway

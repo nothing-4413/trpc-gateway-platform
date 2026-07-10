@@ -4,27 +4,33 @@
 #include "tgw/gateway/http_types.h"
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-namespace tgw
-{
-    using RouteHandler = std::function<HttpResponse(const HttpRequest&)>;
+namespace tgw {
 
-    class Router
-    {
-        public:
-            void AddRoute(const std::string& method, const std::string& path,RouteHandler handler);
+using RouteHandler = std::function<HttpResponse(const HttpRequest&)>;
 
-            HttpResponse Dispatch(const HttpRequest& request) const;
+class Router {
+public:
+    void AddRoute(const std::string& method, const std::string& path, RouteHandler handler);
 
-            std::vector<std::string> ListRoutes() const;
-        
-        private:
-            static std::string MakeRouteKey(cosnt std::string& method,const std::string& path);
+    // 设置兜底处理器。
+    // 精确路由没有匹配时，会进入 fallback。
+    void SetFallback(RouteHandler handler);
 
-        private:
-            std::unordered_map<std::string,RouteHandler> routes_;
-    };
-}
+    HttpResponse Dispatch(const HttpRequest& request) const;
+
+    std::vector<std::string> ListRoutes() const;
+
+private:
+    static std::string MakeRouteKey(const std::string& method, const std::string& path);
+
+private:
+    std::unordered_map<std::string, RouteHandler> routes_;
+    std::optional<RouteHandler> fallback_;
+};
+
+} // namespace tgw

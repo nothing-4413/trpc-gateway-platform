@@ -17,3 +17,25 @@ gateway:
   enable_rate_limit: true
   enable_tracing: true
   request_timeout_ms: 3000
+
+routes:
+  - name: "user-service-route"
+    match_type: "prefix"
+    path: "/api/user"
+    upstream: "UserService"
+    strip_prefix: true
+    timeout_ms: 1000
+
+  - name: "file-service-route"
+    match_type: "prefix"
+    path: "/api/file"
+    upstream: "FileMetaService"
+    strip_prefix: true
+    timeout_ms: 1500
+
+  - name: "task-service-route"
+    match_type: "prefix"
+    path: "/api/task"
+    upstream: "TaskService"
+    strip_prefix: true
+    timeout_ms: 2000

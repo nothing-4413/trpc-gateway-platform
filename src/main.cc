@@ -1,8 +1,11 @@
 #include "tgw/common/config.h"
 #include "tgw/common/logger.h"
 #include "tgw/common/status.h"
+#include "tgw/gateway/gateway_handler.h"
 #include "tgw/gateway/http_server.h"
+#include "tgw/gateway/route_rule.h"
 #include "tgw/gateway/router.h"
+#include "tgw/gateway/upstream_client.h"
 
 #include <exception>
 #include <iostream>
@@ -30,8 +33,10 @@ std::string ParseConfigPath(int argc, char* argv[]) {
 std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
     auto router = std::make_shared<tgw::Router>();
 
-    // 健康检查接口。
-    // 后续 Docker Compose、Prometheus、负载均衡器都会用它判断网关是否存活。
+    auto route_manager = std::make_shared<tgw::RouteRuleManager>(config.routes);
+    auto upstream_client = std::make_shared<tgw::MockUpstreamClient>();
+    auto gateway_handler = std::make_shared<tgw::GatewayHandler>(route_manager, upstream_client);
+
     router->AddRoute("GET", "/health", [config](const tgw::HttpRequest& req) {
         (void)req;
 
@@ -49,24 +54,44 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         return rsp;
     });
 
-    // 路由查看接口。
-    // 当前只是调试用，后续可以接入 admin 权限控制。
-    router->AddRoute("GET", "/routes", [router](const tgw::HttpRequest& req) {
+    router->AddRoute("GET", "/routes", [router, route_manager](const tgw::HttpRequest& req) {
         (void)req;
 
-        auto routes = router->ListRoutes();
+        auto exact_routes = router->ListRoutes();
+        auto gateway_routes = route_manager->ListRoutes();
 
         std::ostringstream data;
-        data << "[";
+        data << "{";
 
-        for (size_t i = 0; i < routes.size(); ++i) {
+        data << "\"exact_routes\":[";
+        for (size_t i = 0; i < exact_routes.size(); ++i) {
             if (i > 0) {
                 data << ",";
             }
-            data << "\"" << tgw::JsonEscape(routes[i]) << "\"";
+            data << "\"" << tgw::JsonEscape(exact_routes[i]) << "\"";
         }
+        data << "],";
 
+        data << "\"gateway_routes\":[";
+        for (size_t i = 0; i < gateway_routes.size(); ++i) {
+            if (i > 0) {
+                data << ",";
+            }
+
+            const auto& route = gateway_routes[i];
+
+            data << "{";
+            data << "\"name\":\"" << tgw::JsonEscape(route.name) << "\",";
+            data << "\"match_type\":\"" << tgw::JsonEscape(route.match_type) << "\",";
+            data << "\"path\":\"" << tgw::JsonEscape(route.path) << "\",";
+            data << "\"upstream\":\"" << tgw::JsonEscape(route.upstream) << "\",";
+            data << "\"strip_prefix\":" << (route.strip_prefix ? "true" : "false") << ",";
+            data << "\"timeout_ms\":" << route.timeout_ms;
+            data << "}";
+        }
         data << "]";
+
+        data << "}";
 
         tgw::HttpResponse rsp;
         rsp.status = 200;
@@ -74,6 +99,12 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         rsp.body = tgw::ApiResponse::Success(data.str()).ToJson();
 
         return rsp;
+    });
+
+    // 所有没有精确匹配到的请求都进入 GatewayHandler。
+    // GatewayHandler 内部会根据配置路由决定转发到哪个 upstream。
+    router->SetFallback([gateway_handler](const tgw::HttpRequest& req) {
+        return gateway_handler->Handle(req);
     });
 
     return router;
@@ -95,6 +126,7 @@ int main(int argc, char* argv[]) {
         TGW_INFO("listen address: {}:{}", config.server.host, config.server.port);
         TGW_INFO("io threads: {}", config.runtime.io_threads);
         TGW_INFO("worker threads: {}", config.runtime.worker_threads);
+        TGW_INFO("route count: {}", config.routes.size());
         TGW_INFO("auth enabled: {}", config.gateway.enable_auth);
         TGW_INFO("rate limit enabled: {}", config.gateway.enable_rate_limit);
         TGW_INFO("tracing enabled: {}", config.gateway.enable_tracing);
