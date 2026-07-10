@@ -86,6 +86,7 @@ add_executable(tgw_gateway
     src/gateway/gateway_handler.cc
     src/gateway/local_rpc_upstream_client.cc
     src/governance/rate_limit_filter.cc
+    src/observability/metrics.cc
 )
 
 target_include_directories(tgw_gateway

@@ -9,6 +9,7 @@
 #include "tgw/gateway/route_rule.h"
 #include "tgw/gateway/router.h"
 #include "tgw/governance/rate_limit_filter.h"
+#include "tgw/observability/metrics.h"
 #include "tgw/service/file_meta_service.h"
 #include "tgw/service/task_service.h"
 #include "tgw/service/user_service.h"
@@ -46,6 +47,7 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
     auto token_service = std::make_shared<tgw::TokenService>(config.auth);
     auto auth_filter = std::make_shared<tgw::AuthFilter>(config.auth, token_service);
     auto rate_limit_filter = std::make_shared<tgw::RateLimitFilter>(config.rate_limit);
+    auto metrics = std::make_shared<tgw::MetricsRegistry>();
 
     auto upstream_client = std::make_shared<tgw::LocalRpcUpstreamClient>(
         user_service,
@@ -57,7 +59,8 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         route_manager,
         upstream_client,
         auth_filter,
-        rate_limit_filter
+        rate_limit_filter,
+        metrics
     );
 
     router->AddRoute("GET", "/health", [config](const tgw::HttpRequest& req) {
@@ -122,6 +125,11 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         rsp.body = tgw::ApiResponse::Success(data.str()).ToJson();
 
         return rsp;
+    });
+
+    router->AddRoute("GET", "/metrics", [metrics](const tgw::HttpRequest& req) {
+        (void)req;
+        return tgw::BuildPrometheusResponse(metrics);
     });
 
     // 所有没有精确匹配到的请求都进入 GatewayHandler。
