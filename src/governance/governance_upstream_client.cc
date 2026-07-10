@@ -3,6 +3,7 @@
 #include "tgw/common/logger.h"
 #include "tgw/common/status.h"
 
+#include <algorithm>
 #include <chrono>
 #include <map>
 #include <sstream>
@@ -45,6 +46,48 @@ HttpResponse BuildErrorResponse(
     return rsp;
 }
 
+bool SleepUntilReadyOrDeadline(const ForwardContext& ctx, int sleep_ms) {
+    if (sleep_ms <= 0) {
+        return !ctx.DeadlineExceeded();
+    }
+
+    int slept_ms = 0;
+    while (slept_ms < sleep_ms) {
+        if (ctx.DeadlineExceeded()) {
+            ctx.CancelDeadline("deadline exceeded");
+            return false;
+        }
+
+        int step_ms = std::min(10, sleep_ms - slept_ms);
+        if (ctx.deadline) {
+            auto remaining_ms = ctx.deadline->RemainingMs();
+            if (remaining_ms <= 0) {
+                ctx.CancelDeadline("deadline exceeded");
+                return false;
+            }
+            step_ms = static_cast<int>(std::min<int64_t>(step_ms, remaining_ms));
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(step_ms));
+        slept_ms += step_ms;
+    }
+
+    return !ctx.DeadlineExceeded();
+}
+
+int64_t ElapsedMsSince(
+    const ForwardContext& ctx,
+    std::chrono::steady_clock::time_point started_at
+) {
+    if (ctx.deadline) {
+        return ctx.deadline->ElapsedMs();
+    }
+
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started_at
+    ).count();
+}
+
 } // namespace
 
 GovernanceUpstreamClient::GovernanceUpstreamClient(
@@ -78,6 +121,13 @@ HttpResponse GovernanceUpstreamClient::Forward(const ForwardContext& ctx) {
     bool has_response = false;
 
     for (int attempt = 1; attempt <= max_attempts; ++attempt) {
+        if (ctx.DeadlineExceeded()) {
+            ctx.CancelDeadline("deadline exceeded");
+            last_response = TimeoutResponse(ctx, attempt);
+            has_response = true;
+            break;
+        }
+
         TGW_INFO(
             "governance call attempt, request_id={}, upstream={}, attempt={}/{}",
             ctx.request_id,
@@ -90,11 +140,10 @@ HttpResponse GovernanceUpstreamClient::Forward(const ForwardContext& ctx) {
 
         HttpResponse response = CallOnce(ctx);
 
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - started_at
-        ).count();
+        auto elapsed_ms = ElapsedMsSince(ctx, started_at);
 
-        if (elapsed_ms > ctx.timeout_ms) {
+        if (ctx.DeadlineExceeded() || elapsed_ms > ctx.timeout_ms) {
+            ctx.CancelDeadline("deadline exceeded");
             TGW_WARN(
                 "upstream timeout detected, request_id={}, upstream={}, elapsed_ms={}, timeout_ms={}",
                 ctx.request_id,
@@ -128,9 +177,11 @@ HttpResponse GovernanceUpstreamClient::Forward(const ForwardContext& ctx) {
         }
 
         if (config_.retry.backoff_ms > 0) {
-            std::this_thread::sleep_for(
-                std::chrono::milliseconds(config_.retry.backoff_ms)
-            );
+            if (!SleepUntilReadyOrDeadline(ctx, config_.retry.backoff_ms)) {
+                last_response = TimeoutResponse(ctx, attempt);
+                has_response = true;
+                break;
+            }
         }
     }
 
@@ -248,7 +299,14 @@ bool GovernanceUpstreamClient::IsIdempotentMethod(const std::string& method) con
 HttpResponse GovernanceUpstreamClient::CallOnce(const ForwardContext& ctx) {
     int debug_sleep_ms = HeaderToInt(ctx.headers, "X-Debug-Sleep-Ms", 0);
     if (debug_sleep_ms > 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(debug_sleep_ms));
+        if (!SleepUntilReadyOrDeadline(ctx, debug_sleep_ms)) {
+            return TimeoutResponse(ctx, 1);
+        }
+    }
+
+    if (ctx.DeadlineExceeded()) {
+        ctx.CancelDeadline("deadline exceeded");
+        return TimeoutResponse(ctx, 1);
     }
 
     int debug_force_status = HeaderToInt(ctx.headers, "X-Debug-Force-Status", 0);

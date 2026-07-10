@@ -12,7 +12,7 @@
 - Gateway 到 Local RPC：将 HTTP JSON / Query 转换为 Protobuf 请求并调用本地服务实现。
 - Token 鉴权：登录签发 HS256 JWT，网关统一校验 Authorization Bearer token。
 - 固定窗口限流：支持默认规则与路径级规则，超限返回 42900。
-- 服务治理：支持超时、重试、熔断和 fallback 降级。
+- 服务治理：支持可取消 Deadline、重试、熔断和 fallback 降级。
 - Prometheus metrics：暴露 `/metrics`，记录请求数、状态码、耗时等指标。
 - Debug tracing：暴露 `/debug/traces`，用于查看请求链路，生产默认不回传调试响应头。
 - Admin 接口：暴露 `/admin/runtime`、`/admin/routes`、`/admin/features`，需要 Bearer token 访问。
@@ -65,6 +65,7 @@ GatewayHandler
 15. 标准 JWT、生产 Debug Header 收口、Admin 接口保护
 16. 异步 HTTP Server：`io_threads` 真正承担网络 IO
 17. HTTP 连接生命周期治理：Keep-Alive、读写超时、Body Limit、优雅退出
+18. 可取消 Deadline：Deadline 状态贯穿 Gateway、治理层、本地 RPC 和服务实现
 
 ## 构建运行
 

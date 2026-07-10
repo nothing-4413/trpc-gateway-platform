@@ -21,6 +21,16 @@ void FillMeta(
     meta->set_cost_ms(ctx.ElapsedMs());
 }
 
+bool FillTimeoutIfCancelled(tgw::rpc::RpcMeta* meta, const RpcContext& ctx) {
+    if (!ctx.DeadlineExceeded()) {
+        return false;
+    }
+
+    ctx.CancelDeadline("deadline exceeded");
+    FillMeta(meta, tgw::rpc::RPC_TIMEOUT, "deadline exceeded", ctx);
+    return true;
+}
+
 int64_t NowUnixSeconds() {
     return std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()
@@ -41,6 +51,10 @@ tgw::rpc::CreateFileMetaResponse FileMetaServiceImpl::CreateFileMeta(
     );
 
     tgw::rpc::CreateFileMetaResponse response;
+
+    if (FillTimeoutIfCancelled(response.mutable_meta(), ctx)) {
+        return response;
+    }
 
     if (request.filename().empty() || request.size() < 0) {
         FillMeta(
@@ -92,6 +106,10 @@ tgw::rpc::GetFileMetaResponse FileMetaServiceImpl::GetFileMeta(
     );
 
     tgw::rpc::GetFileMetaResponse response;
+
+    if (FillTimeoutIfCancelled(response.mutable_meta(), ctx)) {
+        return response;
+    }
 
     std::lock_guard<std::mutex> lock(mutex_);
 

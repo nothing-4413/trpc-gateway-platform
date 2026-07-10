@@ -220,6 +220,7 @@ RpcContext BuildRpcContext(const ForwardContext& ctx) {
     rpc_ctx.request_id = ctx.request_id;
     rpc_ctx.caller = "tgw-gateway";
     rpc_ctx.timeout_ms = ctx.timeout_ms;
+    rpc_ctx.deadline = ctx.deadline;
     rpc_ctx.headers = ctx.headers;
 
     auto trace = ctx.headers.find("X-Trace-Id");
@@ -313,6 +314,23 @@ HttpResponse InternalError(const std::string& message, const std::string& reques
     return BuildJsonResponse(500, ApiResponse::Error(ErrorCode::INTERNAL_ERROR, message), request_id);
 }
 
+HttpResponse DeadlineExceeded(const ForwardContext& ctx) {
+    return BuildJsonResponse(
+        504,
+        ApiResponse::Error(ErrorCode::RPC_TIMEOUT, "deadline exceeded"),
+        ctx.request_id
+    );
+}
+
+bool IsDeadlineExceeded(const ForwardContext& ctx) {
+    if (!ctx.DeadlineExceeded()) {
+        return false;
+    }
+
+    ctx.CancelDeadline("deadline exceeded");
+    return true;
+}
+
 std::string JsonPair(const std::string& key, const std::string& value, bool string_value) {
     std::ostringstream oss;
     oss << "\"" << JsonEscape(key) << "\":";
@@ -339,6 +357,10 @@ LocalRpcUpstreamClient::LocalRpcUpstreamClient(
 
 HttpResponse LocalRpcUpstreamClient::Forward(const ForwardContext& ctx) {
     try {
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
+
         TGW_INFO(
             "local rpc forward, request_id={}, upstream={}, path={}",
             ctx.request_id,
@@ -369,11 +391,19 @@ HttpResponse LocalRpcUpstreamClient::ForwardUserService(const ForwardContext& ct
     RpcContext rpc_ctx = BuildRpcContext(ctx);
 
     if (ctx.method == "POST" && ctx.upstream_path == "/login") {
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
+
         auto body = ParseFlatJsonObject(ctx.body);
 
         tgw::rpc::LoginRequest req;
         req.set_username(GetString(body, "username"));
         req.set_password(GetString(body, "password"));
+
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
 
         auto rsp = user_service_->Login(rpc_ctx, req);
         std::string token = rsp.token();
@@ -393,6 +423,10 @@ HttpResponse LocalRpcUpstreamClient::ForwardUserService(const ForwardContext& ct
     }
 
     if (ctx.method == "GET" && ctx.upstream_path == "/profile") {
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
+
         auto query = ParseQuery(ctx.query);
 
         tgw::rpc::GetProfileRequest req;
@@ -401,6 +435,10 @@ HttpResponse LocalRpcUpstreamClient::ForwardUserService(const ForwardContext& ct
             user_id = std::stoll(rpc_ctx.user_id);
         }
         req.set_user_id(user_id);
+
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
 
         auto rsp = user_service_->GetProfile(rpc_ctx, req);
 
@@ -422,6 +460,10 @@ HttpResponse LocalRpcUpstreamClient::ForwardFileMetaService(const ForwardContext
     RpcContext rpc_ctx = BuildRpcContext(ctx);
 
     if (ctx.method == "POST" && ctx.upstream_path == "/meta/create") {
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
+
         auto body = ParseFlatJsonObject(ctx.body);
 
         tgw::rpc::CreateFileMetaRequest req;
@@ -434,6 +476,10 @@ HttpResponse LocalRpcUpstreamClient::ForwardFileMetaService(const ForwardContext
         }
         req.set_owner_user_id(owner_user_id);
 
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
+
         auto rsp = file_meta_service_->CreateFileMeta(rpc_ctx, req);
 
         std::ostringstream data;
@@ -443,10 +489,18 @@ HttpResponse LocalRpcUpstreamClient::ForwardFileMetaService(const ForwardContext
     }
 
     if (ctx.method == "GET" && ctx.upstream_path == "/meta") {
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
+
         auto query = ParseQuery(ctx.query);
 
         tgw::rpc::GetFileMetaRequest req;
         req.set_file_id(GetString(query, "file_id"));
+
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
 
         auto rsp = file_meta_service_->GetFileMeta(rpc_ctx, req);
 
@@ -470,6 +524,10 @@ HttpResponse LocalRpcUpstreamClient::ForwardTaskService(const ForwardContext& ct
     RpcContext rpc_ctx = BuildRpcContext(ctx);
 
     if (ctx.method == "POST" && ctx.upstream_path == "/create") {
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
+
         auto body = ParseFlatJsonObject(ctx.body);
 
         tgw::rpc::CreateTaskRequest req;
@@ -481,6 +539,10 @@ HttpResponse LocalRpcUpstreamClient::ForwardTaskService(const ForwardContext& ct
         }
         req.set_user_id(user_id);
 
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
+
         auto rsp = task_service_->CreateTask(rpc_ctx, req);
 
         std::ostringstream data;
@@ -490,10 +552,18 @@ HttpResponse LocalRpcUpstreamClient::ForwardTaskService(const ForwardContext& ct
     }
 
     if (ctx.method == "GET" && ctx.upstream_path == "/get") {
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
+
         auto query = ParseQuery(ctx.query);
 
         tgw::rpc::GetTaskRequest req;
         req.set_task_id(GetString(query, "task_id"));
+
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
 
         auto rsp = task_service_->GetTask(rpc_ctx, req);
 
@@ -512,6 +582,10 @@ HttpResponse LocalRpcUpstreamClient::ForwardTaskService(const ForwardContext& ct
     }
 
     if (ctx.method == "POST" && ctx.upstream_path == "/event") {
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
+
         auto body = ParseFlatJsonObject(ctx.body);
 
         tgw::rpc::TaskEvent event;
@@ -519,6 +593,10 @@ HttpResponse LocalRpcUpstreamClient::ForwardTaskService(const ForwardContext& ct
         event.set_status(static_cast<tgw::rpc::TaskStatus>(GetInt64(body, "status")));
         event.set_message(GetString(body, "message"));
         event.set_timestamp(GetInt64(body, "timestamp"));
+
+        if (IsDeadlineExceeded(ctx)) {
+            return DeadlineExceeded(ctx);
+        }
 
         task_service_->SubmitTaskEvent(rpc_ctx, event);
 

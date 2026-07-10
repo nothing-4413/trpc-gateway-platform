@@ -21,6 +21,16 @@ void FillMeta(
     meta->set_cost_ms(ctx.ElapsedMs());
 }
 
+bool FillTimeoutIfCancelled(tgw::rpc::RpcMeta* meta, const RpcContext& ctx) {
+    if (!ctx.DeadlineExceeded()) {
+        return false;
+    }
+
+    ctx.CancelDeadline("deadline exceeded");
+    FillMeta(meta, tgw::rpc::RPC_TIMEOUT, "deadline exceeded", ctx);
+    return true;
+}
+
 int64_t NowUnixSeconds() {
     return std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()
@@ -41,6 +51,10 @@ tgw::rpc::CreateTaskResponse TaskServiceImpl::CreateTask(
     );
 
     tgw::rpc::CreateTaskResponse response;
+
+    if (FillTimeoutIfCancelled(response.mutable_meta(), ctx)) {
+        return response;
+    }
 
     if (request.task_type().empty()) {
         FillMeta(
@@ -95,6 +109,10 @@ tgw::rpc::GetTaskResponse TaskServiceImpl::GetTask(
 
     tgw::rpc::GetTaskResponse response;
 
+    if (FillTimeoutIfCancelled(response.mutable_meta(), ctx)) {
+        return response;
+    }
+
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = tasks_.find(request.task_id());
@@ -131,6 +149,16 @@ void TaskServiceImpl::SubmitTaskEvent(
         static_cast<int>(event.status()),
         event.message()
     );
+
+    if (ctx.DeadlineExceeded()) {
+        ctx.CancelDeadline("deadline exceeded");
+        TGW_WARN(
+            "TaskService.SubmitTaskEvent cancelled, request_id={}, reason={}",
+            ctx.request_id,
+            ctx.DeadlineReason()
+        );
+        return;
+    }
 
     std::lock_guard<std::mutex> lock(mutex_);
 

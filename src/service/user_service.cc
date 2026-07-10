@@ -18,6 +18,16 @@ void FillMeta(
     meta->set_cost_ms(ctx.ElapsedMs());
 }
 
+bool FillTimeoutIfCancelled(tgw::rpc::RpcMeta* meta, const RpcContext& ctx) {
+    if (!ctx.DeadlineExceeded()) {
+        return false;
+    }
+
+    ctx.CancelDeadline("deadline exceeded");
+    FillMeta(meta, tgw::rpc::RPC_TIMEOUT, "deadline exceeded", ctx);
+    return true;
+}
+
 } // namespace
 
 tgw::rpc::LoginResponse UserServiceImpl::Login(
@@ -31,6 +41,10 @@ tgw::rpc::LoginResponse UserServiceImpl::Login(
     );
 
     tgw::rpc::LoginResponse response;
+
+    if (FillTimeoutIfCancelled(response.mutable_meta(), ctx)) {
+        return response;
+    }
 
     if (request.username().empty() || request.password().empty()) {
         FillMeta(
@@ -79,6 +93,10 @@ tgw::rpc::GetProfileResponse UserServiceImpl::GetProfile(
     );
 
     tgw::rpc::GetProfileResponse response;
+
+    if (FillTimeoutIfCancelled(response.mutable_meta(), ctx)) {
+        return response;
+    }
 
     if (request.user_id() != 10001) {
         FillMeta(

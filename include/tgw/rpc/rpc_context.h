@@ -1,6 +1,9 @@
 #pragma once
 
+#include "tgw/common/deadline.h"
+
 #include <chrono>
+#include <cstdint>
 #include <map>
 #include <string>
 
@@ -15,6 +18,7 @@ struct RpcContext {
     std::string user_id;
 
     int timeout_ms = 1000;
+    DeadlineContextPtr deadline;
 
     std::map<std::string, std::string> headers;
 
@@ -23,6 +27,23 @@ struct RpcContext {
     int64_t ElapsedMs() const {
         auto now = std::chrono::steady_clock::now();
         return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
+    }
+
+    bool DeadlineExceeded() const {
+        return deadline && deadline->IsDone();
+    }
+
+    void CancelDeadline(const std::string& reason) const {
+        if (deadline) {
+            deadline->Cancel(reason);
+        }
+    }
+
+    std::string DeadlineReason() const {
+        if (!deadline) {
+            return "";
+        }
+        return deadline->Reason();
     }
 };
 

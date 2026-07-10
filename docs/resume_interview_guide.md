@@ -14,7 +14,7 @@
 - 使用 Protobuf 定义 User / FileMeta / Task 服务接口，实现 Gateway 到本地 RPC 服务的协议转换与调度。
 - 实现 Token 鉴权过滤器，登录接口签发 HS256 JWT，业务接口统一校验 Bearer token。
 - 实现固定窗口限流，支持默认规则和路径级规则，超限统一返回 42900。
-- 实现服务治理能力，包括超时、重试、熔断和 fallback 降级，降低下游异常对网关的影响。
+- 实现服务治理能力，包括可取消 Deadline、重试、熔断和 fallback 降级，降低下游异常对网关的影响。
 - 接入 Prometheus metrics、Debug traces 和 Admin 管理接口，提升运行时可观测性。
 - 编写 benchmark 脚本并在 CentOS 环境完成压测，保存完整 run_results。
 
@@ -32,7 +32,7 @@ HTTP Server 采用异步 accept、异步 read 和异步 write，网络事件由 
 
 限流模块采用固定窗口算法，支持默认额度和路径级规则。例如登录接口单独限制，业务接口也可以按路径配置额度。限流 key 可以基于用户 ID 或客户端 IP，超限会返回统一错误码 42900。
 
-服务治理模块放在 UpstreamClient 外层，通过组合方式包装 LocalRpcUpstreamClient。它支持超时、重试、熔断和 fallback。当下游连续失败时，熔断器会打开，后续请求直接走降级逻辑，避免继续打爆下游。
+服务治理模块放在 UpstreamClient 外层，通过组合方式包装 LocalRpcUpstreamClient。它支持可取消 Deadline、重试、熔断和 fallback。每次请求会创建共享 Deadline 状态，并随 `ForwardContext` 传到 `RpcContext`，治理层等待点、本地 RPC 转发和服务实现都会检查取消状态，而不是只在调用结束后比较耗时。当下游连续失败时，熔断器会打开，后续请求直接走降级逻辑，避免继续打爆下游。
 
 可观测性方面，项目暴露了 `/metrics`，Prometheus 可以抓取请求数、状态码、耗时等指标；`/debug/traces` 可以查看调试链路；`/admin/runtime`、`/admin/routes`、`/admin/features` 可以查看运行时配置和路由状态。生产配置默认不向响应头暴露 `X-Trace-Id` / `X-Span-Id` 这类调试信息。
 
@@ -56,7 +56,7 @@ HTTP Server 采用异步 accept、异步 read 和异步 write，网络事件由 
 
 **服务治理怎么防止下游故障扩散？**
 
-通过超时控制避免请求长期占用资源，通过重试处理短暂抖动，通过熔断避免持续打到故障下游，通过 fallback 返回可控降级响应。
+通过可取消 Deadline 避免请求长期占用资源，通过重试处理短暂抖动，通过熔断避免持续打到故障下游，通过 fallback 返回可控降级响应。
 
 **这个项目的亮点是什么？**
 

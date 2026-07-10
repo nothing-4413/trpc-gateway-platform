@@ -1,8 +1,10 @@
 #pragma once
 
+#include "tgw/common/deadline.h"
 #include "tgw/gateway/http_types.h"
 #include "tgw/gateway/route_rule.h"
 
+#include <cstdint>
 #include <map>
 #include <string>
 
@@ -19,6 +21,7 @@ struct ForwardContext {
     std::string body;
 
     int timeout_ms = 1000;
+    DeadlineContextPtr deadline;
 
     std::map<std::string, std::string> headers;
 
@@ -35,6 +38,7 @@ struct ForwardContext {
         ctx.query = request.query;
         ctx.body = request.body;
         ctx.timeout_ms = match.route.timeout_ms;
+        ctx.deadline = DeadlineContext::Start(ctx.timeout_ms);
 
         auto copy_header = [&](const std::string& key) {
             auto it = request.headers.find(key);
@@ -60,6 +64,27 @@ struct ForwardContext {
         ctx.headers["X-Request-Id"] = request.request_id;
 
         return ctx;
+    }
+
+    bool DeadlineExceeded() const {
+        return deadline && deadline->IsDone();
+    }
+
+    void CancelDeadline(const std::string& reason) const {
+        if (deadline) {
+            deadline->Cancel(reason);
+        }
+    }
+
+    int64_t DeadlineElapsedMs() const {
+        return deadline ? deadline->ElapsedMs() : 0;
+    }
+
+    std::string DeadlineReason() const {
+        if (!deadline) {
+            return "";
+        }
+        return deadline->Reason();
     }
 };
 
