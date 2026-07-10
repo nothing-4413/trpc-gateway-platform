@@ -1,49 +1,43 @@
-
 #include "tgw/gateway/route_rule.h"
 
 #include <algorithm>
+#include <utility>
 
-namespace tgw
-{
-    RouteRuleManager::routeRuleManager(std::vector<RouteConfig> routes)
-    :routes_(std::move(routes))
-    {
-        std::sort(routes_.begin(),routes_.end(),[](const RouteConfig& lhs,const RouteConfig& rhs)
-        {
-            return lhs.path.size() > rhs.path.size();
-        });
-    }
+namespace tgw {
 
-    std::optional<RouteMatchResult>RouteRuleManager::Match(const std::string& request_path) const
-    {
-        for(const auto& route : routes_)
-        {
-            if(route.match_type != "prefix")
-            {
-                continue;
-            }
+RouteRuleManager::RouteRuleManager(std::vector<RouteConfig> routes)
+    : routes_(std::move(routes)) {
+    std::sort(routes_.begin(), routes_.end(), [](const RouteConfig& lhs, const RouteConfig& rhs) {
+        return lhs.path.size() > rhs.path.size();
+    });
+}
 
-            if (!IsPrefixMatch(route.path, request_path)) .
-            {
-                continue;
-            }
-
-            RouteMatchResult result;
-            result.route = route;
-            result.original_path = request_path;
-            result.upstream_path = BuildUpstreamPath(
-                route.path,
-                request_path,
-                route.strip_prefix
-            );
-
-            return result;
+std::optional<RouteMatchResult> RouteRuleManager::Match(const std::string& request_path) const {
+    for (const auto& route : routes_) {
+        if (route.match_type != "prefix") {
+            continue;
         }
 
-        return std::nullopt;
+        if (!IsPrefixMatch(route.path, request_path)) {
+            continue;
+        }
+
+        RouteMatchResult result;
+        result.route = route;
+        result.original_path = request_path;
+        result.upstream_path = BuildUpstreamPath(
+            route.path,
+            request_path,
+            route.strip_prefix
+        );
+
+        return result;
     }
 
-    std::vector<RouteConfig> RouteRuleManager::ListRoutes() const {
+    return std::nullopt;
+}
+
+std::vector<RouteConfig> RouteRuleManager::ListRoutes() const {
     return routes_;
 }
 
@@ -77,26 +71,27 @@ bool RouteRuleManager::IsPrefixMatch(const std::string& rule_path, const std::st
 std::string RouteRuleManager::BuildUpstreamPath(
     const std::string& rule_path,
     const std::string& request_path,
-    bool strip_prefix)
-    {
-        if (!strip_prefix) {
-            return request_path;
-        }
-
-        if (request_path.size() == rule_path.size()) {
-            return "/";
-        }
-
-        std::string stripped = request_path.substr(rule_path.size());
-
-        if (stripped.empty()) {
-            return "/";
-        }
-
-        if (stripped[0] != '/') {
-            return "/" + stripped;
-        }
-
-        return stripped;
+    bool strip_prefix
+) {
+    if (!strip_prefix) {
+        return request_path;
     }
+
+    if (request_path.size() == rule_path.size()) {
+        return "/";
+    }
+
+    std::string stripped = request_path.substr(rule_path.size());
+
+    if (stripped.empty()) {
+        return "/";
+    }
+
+    if (stripped[0] != '/') {
+        return "/" + stripped;
+    }
+
+    return stripped;
 }
+
+} // namespace tgw

@@ -3,9 +3,12 @@
 #include "tgw/common/status.h"
 #include "tgw/gateway/gateway_handler.h"
 #include "tgw/gateway/http_server.h"
+#include "tgw/gateway/local_rpc_upstream_client.h"
 #include "tgw/gateway/route_rule.h"
 #include "tgw/gateway/router.h"
-#include "tgw/gateway/upstream_client.h"
+#include "tgw/service/file_meta_service.h"
+#include "tgw/service/task_service.h"
+#include "tgw/service/user_service.h"
 
 #include <exception>
 #include <iostream>
@@ -34,7 +37,15 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
     auto router = std::make_shared<tgw::Router>();
 
     auto route_manager = std::make_shared<tgw::RouteRuleManager>(config.routes);
-    auto upstream_client = std::make_shared<tgw::MockUpstreamClient>();
+    auto user_service = std::make_shared<tgw::UserServiceImpl>();
+    auto file_meta_service = std::make_shared<tgw::FileMetaServiceImpl>();
+    auto task_service = std::make_shared<tgw::TaskServiceImpl>();
+
+    auto upstream_client = std::make_shared<tgw::LocalRpcUpstreamClient>(
+        user_service,
+        file_meta_service,
+        task_service
+    );
     auto gateway_handler = std::make_shared<tgw::GatewayHandler>(route_manager, upstream_client);
 
     router->AddRoute("GET", "/health", [config](const tgw::HttpRequest& req) {

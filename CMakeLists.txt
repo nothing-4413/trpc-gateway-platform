@@ -28,6 +28,7 @@ FetchContent_MakeAvailable(spdlog yaml-cpp)
 
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(Protobuf REQUIRED)
+find_package(Threads REQUIRED)
 
 
 set(PROTO_FILES
@@ -81,6 +82,7 @@ add_executable(tgw_gateway
     src/gateway/route_rule.cc
     src/gateway/upstream_client.cc
     src/gateway/gateway_handler.cc
+    src/gateway/local_rpc_upstream_client.cc
 )
 
 target_include_directories(tgw_gateway
@@ -93,7 +95,7 @@ target_link_libraries(tgw_gateway
         spdlog::spdlog
         yaml-cpp
         Boost::system
-        pthread
+        Threads::Threads
         tgw_rpc_core
 )
 

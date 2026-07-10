@@ -1,1 +1,56 @@
-task.proto
+syntax = "proto3";
+
+package tgw.rpc;
+
+import "common.proto";
+
+service TaskService {
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  rpc SubmitTaskEvent(TaskEvent) returns (Empty);
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNKNOWN = 0;
+  TASK_STATUS_PENDING = 1;
+  TASK_STATUS_RUNNING = 2;
+  TASK_STATUS_SUCCESS = 3;
+  TASK_STATUS_FAILED = 4;
+}
+
+message CreateTaskRequest {
+  string task_type = 1;
+  string payload = 2;
+  int64 user_id = 3;
+}
+
+message CreateTaskResponse {
+  RpcMeta meta = 1;
+  string task_id = 2;
+}
+
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+message TaskInfo {
+  string task_id = 1;
+  string task_type = 2;
+  TaskStatus status = 3;
+  string result = 4;
+  int64 user_id = 5;
+  int64 created_at = 6;
+  int64 updated_at = 7;
+}
+
+message GetTaskResponse {
+  RpcMeta meta = 1;
+  TaskInfo task = 2;
+}
+
+message TaskEvent {
+  string task_id = 1;
+  TaskStatus status = 2;
+  string message = 3;
+  int64 timestamp = 4;
+}
