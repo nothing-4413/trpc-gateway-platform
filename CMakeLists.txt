@@ -27,6 +27,50 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(spdlog yaml-cpp)
 
 find_package(Boost REQUIRED COMPONENTS system)
+find_package(Protobuf REQUIRED)
+
+
+set(PROTO_FILES
+    ${PROJECT_SOURCE_DIR}/proto/common.proto
+    ${PROJECT_SOURCE_DIR}/proto/user.proto
+    ${PROJECT_SOURCE_DIR}/proto/file_meta.proto
+    ${PROJECT_SOURCE_DIR}/proto/task.proto
+)
+
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+
+add_library(tgw_proto
+    ${PROTO_SRCS}
+    ${PROTO_HDRS}
+)
+
+target_include_directories(tgw_proto
+    PUBLIC
+        ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_link_libraries(tgw_proto
+    PUBLIC
+        protobuf::libprotobuf
+)
+
+add_library(tgw_rpc_core
+    src/service/user_service.cc
+    src/service/file_meta_service.cc
+    src/service/task_service.cc
+)
+
+target_include_directories(tgw_rpc_core
+    PUBLIC
+        ${PROJECT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_link_libraries(tgw_rpc_core
+    PUBLIC
+        tgw_proto
+        spdlog::spdlog
+)
 
 add_executable(tgw_gateway
     src/main.cc
@@ -50,6 +94,23 @@ target_link_libraries(tgw_gateway
         yaml-cpp
         Boost::system
         pthread
+        tgw_rpc_core
+)
+
+add_executable(tgw_rpc_demo
+    src/rpc/rpc_demo.cc
+)
+
+target_include_directories(tgw_rpc_demo
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+target_link_libraries(tgw_rpc_demo
+    PRIVATE
+        tgw_rpc_core
+        tgw_proto
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

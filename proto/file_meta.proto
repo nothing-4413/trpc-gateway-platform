@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package tgw.rpc;
+
+import "common.proto";
+
+service FileMetaService {
+  rpc CreateFileMeta(CreateFileMetaRequest) returns (CreateFileMetaResponse);
+  rpc GetFileMeta(GetFileMetaRequest) returns (GetFileMetaResponse);
+}
+
+message CreateFileMetaRequest {
+  string filename = 1;
+  int64 size = 2;
+  string content_type = 3;
+  int64 owner_user_id = 4;
+}
+
+message CreateFileMetaResponse {
+  RpcMeta meta = 1;
+  string file_id = 2;
+}
+
+message GetFileMetaRequest {
+  string file_id = 1;
+}
+
+message FileMeta {
+  string file_id = 1;
+  string filename = 2;
+  int64 size = 3;
+  string content_type = 4;
+  int64 owner_user_id = 5;
+  int64 created_at = 6;
+}
+
+message GetFileMetaResponse {
+  RpcMeta meta = 1;
+  FileMeta file = 2;
+}

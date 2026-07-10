@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package tgw.rpc;
+
+// 通用 RPC 返回码。
+// 这里不是 HTTP 状态码，而是 RPC 层内部状态码。
+enum RpcCode {
+  RPC_OK = 0;
+  RPC_INVALID_ARGUMENT = 1;
+  RPC_UNAUTHORIZED = 2;
+  RPC_NOT_FOUND = 3;
+  RPC_TIMEOUT = 4;
+  RPC_INTERNAL_ERROR = 5;
+}
+
+// 通用元信息。
+// 每个 RPC 响应都带 meta，方便网关统一处理。
+message RpcMeta {
+  RpcCode code = 1;
+  string message = 2;
+  string request_id = 3;
+  int64 cost_ms = 4;
+}
+
+// 空响应。
+// one-way 或只关心状态的接口可以使用。
+message Empty {
+}

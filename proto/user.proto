@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package tgw.rpc;
+
+import "common.proto";
+
+// UserService 负责用户登录、用户信息查询。
+// 这里声明 service 是为了表达 RPC IDL 语义。
+// 本模块先生成 message，后续模块再接 gRPC / tRPC 真实网络调用。
+service UserService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  RpcMeta meta = 1;
+  int64 user_id = 2;
+  string username = 3;
+  string token = 4;
+}
+
+message GetProfileRequest {
+  int64 user_id = 1;
+}
+
+message UserProfile {
+  int64 user_id = 1;
+  string username = 2;
+  string email = 3;
+  string role = 4;
+}
+
+message GetProfileResponse {
+  RpcMeta meta = 1;
+  UserProfile profile = 2;
+}
