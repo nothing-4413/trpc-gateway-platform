@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: "TGW Gateway Dashboards"
+    orgId: 1
+    folder: "TGW"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

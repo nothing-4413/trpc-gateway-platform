@@ -24,7 +24,12 @@ FetchContent_Declare(
     URL https://github.com/jbeder/yaml-cpp/archive/refs/tags/0.8.0.tar.gz
 )
 
-FetchContent_MakeAvailable(spdlog yaml-cpp)
+FetchContent_Declare(
+    nlohmann_json
+    URL https://github.com/nlohmann/json/archive/refs/tags/v3.11.3.tar.gz
+)
+
+FetchContent_MakeAvailable(spdlog yaml-cpp nlohmann_json)
 
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(Protobuf REQUIRED)
@@ -100,6 +105,7 @@ target_link_libraries(tgw_gateway
     PRIVATE
         spdlog::spdlog
         yaml-cpp
+        nlohmann_json::nlohmann_json
         Boost::system
         Threads::Threads
         tgw_rpc_core
@@ -120,10 +126,17 @@ target_link_libraries(tgw_rpc_demo
     PRIVATE
         tgw_rpc_core
         tgw_proto
+        spdlog::spdlog
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(tgw_gateway PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+    )
+
+    target_compile_options(tgw_rpc_demo PRIVATE
         -Wall
         -Wextra
         -Wpedantic

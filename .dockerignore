@@ -1,0 +1,13 @@
+.git
+.gitignore
+build
+cmake-build-*
+.vscode
+.idea
+logs
+*.log
+*.tmp
+*.swp
+.DS_Store
+deploy/grafana/data
+deploy/prometheus/data
