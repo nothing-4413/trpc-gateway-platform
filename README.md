@@ -1,35 +1,44 @@
-# trpc-gateway-platform
+# TGW Gateway Platform
 
-基于 tRPC-Cpp 架构思想实现的高性能微服务网关与统一 RPC 调度平台。
+基于 C++17 的高性能微服务网关与统一 RPC 调度平台。
 
-## 技术栈
+本项目参考 tRPC-Cpp 的分层架构思想，围绕微服务网关核心场景实现：
 
-- C++17 / C++20
-- CMake
-- Protobuf
-- HTTP / gRPC / tRPC 协议思想
-- Redis
-- MySQL
-- Prometheus
-- OpenTelemetry / Jaeger
-- Docker Compose
-- wrk / hey / JMeter
+- HTTP 接入
+- 配置化路由
+- 统一响应封装
+- Protobuf 服务接口
+- 本地 RPC 调度
+- JWT 风格鉴权
+- 固定窗口限流
+- 重试、超时、熔断、降级
+- Prometheus 指标
+- TraceId 链路追踪
+- Docker Compose 部署
+- hey / wrk 压测
 
-## 当前模块
+## 1. 架构图
 
-### Module 1：项目初始化
-
-已完成：
-
-- CMake 工程初始化
-- 目录结构设计
-- YAML 配置文件设计
-- spdlog 日志模块
-- 程序启动入口
-
-## 构建运行
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build -j
-./build/tgw_gateway --config=configs/gateway.yaml
+```text
+Client
+  |
+  v
+Boost.Beast HTTP Server
+  |
+  v
+Router
+  |
+  v
+GatewayHandler
+  |
+  +--> AuthFilter
+  |
+  +--> RateLimitFilter
+  |
+  +--> GovernanceUpstreamClient
+          |
+          +--> LocalRpcUpstreamClient
+                    |
+                    +--> UserService
+                    +--> FileMetaService
+                    +--> TaskService
