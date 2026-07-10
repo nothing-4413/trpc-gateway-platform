@@ -8,7 +8,7 @@
 
 ## 简历要点
 
-- 设计并实现基于 Boost.Beast 的 HTTP Gateway，封装统一 `HttpRequest` / `HttpResponse`，支持 request id 透传和统一 JSON 响应。
+- 设计并实现基于 Boost.Beast 的异步 HTTP Gateway，封装统一 `HttpRequest` / `HttpResponse`，支持 request id 透传和统一 JSON 响应，并让 `io_threads` 承担网络 IO 事件循环。
 - 实现 YAML 配置化路由系统，支持前缀匹配、最长路径优先、strip prefix 和 upstream 抽象。
 - 使用 Protobuf 定义 User / FileMeta / Task 服务接口，实现 Gateway 到本地 RPC 服务的协议转换与调度。
 - 实现 Token 鉴权过滤器，登录接口签发 HS256 JWT，业务接口统一校验 Bearer token。

@@ -3,9 +3,13 @@
 #include "tgw/common/logger.h"
 #include "tgw/gateway/http_types.h"
 
+#include <algorithm>
 #include <chrono>
+#include <functional>
 #include <sstream>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
@@ -58,103 +62,204 @@ HttpRequest ConvertBeastRequest(
     return tgw_req;
 }
 
+class HttpSession : public std::enable_shared_from_this<HttpSession> {
+public:
+    HttpSession(
+        tcp::socket socket,
+        std::shared_ptr<Router> router,
+        asio::thread_pool& worker_pool,
+        std::function<std::string()> request_id_generator
+    )
+        : socket_(std::move(socket)),
+          router_(std::move(router)),
+          worker_pool_(worker_pool),
+          request_id_generator_(std::move(request_id_generator)) {}
+
+    void Start() {
+        ReadRequest();
+    }
+
+private:
+    void ReadRequest() {
+        auto self = shared_from_this();
+        http::async_read(
+            socket_,
+            buffer_,
+            request_,
+            [self](beast::error_code ec, std::size_t bytes_transferred) {
+                (void)bytes_transferred;
+                if (ec) {
+                    if (ec != http::error::end_of_stream) {
+                        TGW_WARN("async read request failed: {}", ec.message());
+                    }
+                    self->Close();
+                    return;
+                }
+
+                self->DispatchRequest();
+            }
+        );
+    }
+
+    void DispatchRequest() {
+        auto self = shared_from_this();
+        asio::post(worker_pool_, [self]() {
+            self->request_id_ = self->request_id_generator_();
+
+            auto req_id_header = self->request_.find("X-Request-Id");
+            if (req_id_header != self->request_.end()) {
+                self->request_id_ = ToString(req_id_header->value());
+            }
+
+            std::string client_ip = "unknown";
+            beast::error_code remote_ec;
+            auto remote_endpoint = self->socket_.remote_endpoint(remote_ec);
+            if (!remote_ec) {
+                client_ip = remote_endpoint.address().to_string();
+            }
+
+            HttpRequest tgw_req = ConvertBeastRequest(
+                self->request_,
+                client_ip,
+                self->request_id_
+            );
+            HttpResponse tgw_rsp = self->router_->Dispatch(tgw_req);
+
+            asio::post(
+                self->socket_.get_executor(),
+                [self, tgw_rsp = std::move(tgw_rsp)]() mutable {
+                    self->WriteResponse(std::move(tgw_rsp));
+                }
+            );
+        });
+    }
+
+    void WriteResponse(HttpResponse tgw_rsp) {
+        response_ = std::make_shared<http::response<http::string_body>>(
+            static_cast<http::status>(tgw_rsp.status),
+            request_.version()
+        );
+
+        response_->set(http::field::server, "tgw-gateway");
+        response_->set(http::field::content_type, tgw_rsp.content_type);
+        response_->set("X-Request-Id", request_id_);
+
+        for (const auto& header : tgw_rsp.headers) {
+            response_->set(header.first, header.second);
+        }
+
+        response_->keep_alive(false);
+        response_->body() = std::move(tgw_rsp.body);
+        response_->prepare_payload();
+
+        auto self = shared_from_this();
+        http::async_write(
+            socket_,
+            *response_,
+            [self](beast::error_code ec, std::size_t bytes_transferred) {
+                if (ec) {
+                    TGW_WARN("async write response failed: {}", ec.message());
+                } else {
+                    TGW_INFO(
+                        "request finished, request_id={}, status={}, response_bytes={}",
+                        self->request_id_,
+                        static_cast<unsigned>(self->response_->result_int()),
+                        bytes_transferred
+                    );
+                }
+
+                self->Close();
+            }
+        );
+    }
+
+    void Close() {
+        beast::error_code ec;
+        socket_.shutdown(tcp::socket::shutdown_send, ec);
+        socket_.close(ec);
+    }
+
+private:
+    tcp::socket socket_;
+    std::shared_ptr<Router> router_;
+    asio::thread_pool& worker_pool_;
+    std::function<std::string()> request_id_generator_;
+
+    beast::flat_buffer buffer_;
+    http::request<http::string_body> request_;
+    std::shared_ptr<http::response<http::string_body>> response_;
+    std::string request_id_;
+};
+
 } // namespace
 
-HttpServer::HttpServer(ServerConfig server_config,
+HttpServer::HttpServer(
+    ServerConfig server_config,
     RuntimeConfig runtime_config,
-    std::shared_ptr<Router> router)
+    std::shared_ptr<Router> router
+)
     : server_config_(std::move(server_config)),
       runtime_config_(std::move(runtime_config)),
       router_(std::move(router)),
-      worker_pool_(runtime_config_.worker_threads) {}
+      io_context_(std::max(runtime_config.io_threads, 1)),
+      acceptor_(io_context_),
+      worker_pool_(std::max(runtime_config.worker_threads, 1)) {}
 
 void HttpServer::Start() {
-    asio::io_context ioc;
     auto address = asio::ip::make_address(server_config_.host);
     tcp::endpoint endpoint(address, server_config_.port);
 
-    tcp::acceptor acceptor(ioc);
+    acceptor_.open(endpoint.protocol());
+    acceptor_.set_option(asio::socket_base::reuse_address(true));
+    acceptor_.bind(endpoint);
+    acceptor_.listen(asio::socket_base::max_listen_connections);
 
-    acceptor.open(endpoint.protocol());
-    acceptor.set_option(asio::socket_base::reuse_address(true));
-    acceptor.bind(endpoint);
-    acceptor.listen(asio::socket_base::max_listen_connections);
+    TGW_INFO(
+        "async http server listening on {}:{}, io_threads={}, worker_threads={}",
+        server_config_.host,
+        server_config_.port,
+        std::max(runtime_config_.io_threads, 1),
+        std::max(runtime_config_.worker_threads, 1)
+    );
 
-    TGW_INFO("http server listening on {}:{}", server_config_.host, server_config_.port);
+    DoAccept();
 
-    while (true) {
-        auto socket = std::make_shared<tcp::socket>(ioc);
+    auto work_guard = asio::make_work_guard(io_context_);
+    std::vector<std::thread> io_threads;
+    int thread_count = std::max(runtime_config_.io_threads, 1);
+    io_threads.reserve(static_cast<size_t>(thread_count));
 
-        beast::error_code ec;
-        acceptor.accept(*socket, ec);
-
-        if (ec) {
-            TGW_ERROR("accept connection failed: {}", ec.message());
-            continue;
-        }
-
-        asio::post(worker_pool_, [this, socket]() {
-            HandleSession(std::static_pointer_cast<void>(socket));
+    for (int i = 0; i < thread_count; ++i) {
+        io_threads.emplace_back([this]() {
+            io_context_.run();
         });
+    }
+
+    for (auto& thread : io_threads) {
+        if (thread.joinable()) {
+            thread.join();
+        }
     }
 }
 
-void HttpServer::HandleSession(std::shared_ptr<void> socket_holder) {
-    auto socket = std::static_pointer_cast<tcp::socket>(socket_holder);
-
-    try {
-        beast::flat_buffer buffer;
-        http::request<http::string_body> req;
-        http::read(*socket, buffer, req);
-
-        std::string client_ip = "unknown";
-        beast::error_code remote_ec;
-        auto remote_endpoint = socket->remote_endpoint(remote_ec);
-        if (!remote_ec) {
-            client_ip = remote_endpoint.address().to_string();
+void HttpServer::DoAccept() {
+    acceptor_.async_accept([this](beast::error_code ec, tcp::socket socket) {
+        if (ec) {
+            TGW_ERROR("async accept connection failed: {}", ec.message());
+        } else {
+            auto session = std::make_shared<HttpSession>(
+                std::move(socket),
+                router_,
+                worker_pool_,
+                [this]() {
+                    return GenerateRequestId();
+                }
+            );
+            session->Start();
         }
 
-        std::string request_id = GenerateRequestId();
-
-        auto req_id_header = req.find("X-Request-Id");
-        if (req_id_header != req.end()) {
-            request_id = ToString(req_id_header->value());
-        }
-
-        HttpRequest tgw_req = ConvertBeastRequest(req, client_ip, request_id);
-        HttpResponse tgw_rsp = router_->Dispatch(tgw_req);
-
-        http::response<http::string_body> res{
-            static_cast<http::status>(tgw_rsp.status),
-            req.version()
-        };
-
-        res.set(http::field::server, "tgw-gateway");
-        res.set(http::field::content_type, tgw_rsp.content_type);
-        res.set("X-Request-Id", request_id);
-
-        for (const auto& header : tgw_rsp.headers) {
-            res.set(header.first, header.second);
-        }
-
-        res.keep_alive(false);
-        res.body() = tgw_rsp.body;
-        res.prepare_payload();
-
-        http::write(*socket, res);
-
-        beast::error_code ec;
-        socket->shutdown(tcp::socket::shutdown_send, ec);
-
-        TGW_INFO(
-            "request finished, request_id={}, status={}, response_bytes={}",
-            request_id,
-            tgw_rsp.status,
-            tgw_rsp.body.size()
-        );
-    } catch (const std::exception& e) {
-        TGW_ERROR("handle session exception: {}", e.what());
-    }
+        DoAccept();
+    });
 }
 
 std::string HttpServer::GenerateRequestId() {

@@ -7,7 +7,9 @@
 #include <memory>
 #include <string>
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/thread_pool.hpp>
+#include <boost/asio/ip/tcp.hpp>
 
 namespace tgw
 {
@@ -19,7 +21,7 @@ namespace tgw
             void Start();
 
         private:
-            void HandleSession(std::shared_ptr<void> socket_holder);
+            void DoAccept();
 
             std::string GenerateRequestId();
 
@@ -28,6 +30,8 @@ namespace tgw
             RuntimeConfig runtime_config_;
             std::shared_ptr<Router> router_;
         
+            boost::asio::io_context io_context_;
+            boost::asio::ip::tcp::acceptor acceptor_;
             boost::asio::thread_pool worker_pool_;
             
             std::atomic<uint64_t> request_seq_{0};

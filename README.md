@@ -6,7 +6,7 @@
 
 ## 核心能力
 
-- HTTP Gateway：基于 Boost.Asio / Boost.Beast 实现 HTTP 接入。
+- HTTP Gateway：基于 Boost.Asio / Boost.Beast 实现异步 HTTP 接入，`io_threads` 负责网络 IO，`worker_threads` 负责业务分发。
 - 配置化路由：通过 YAML 配置前缀路由、上游服务、超时时间和路径裁剪。
 - RPC 服务抽象：使用 Protobuf 定义 UserService、FileMetaService、TaskService。
 - Gateway 到 Local RPC：将 HTTP JSON / Query 转换为 Protobuf 请求并调用本地服务实现。
