@@ -43,6 +43,12 @@ rate_limit:
   enabled: true
   window_seconds: 60
   default_max_requests: 100
+  redis:
+    enabled: false
+    host: "127.0.0.1"
+    port: 6379
+    key_prefix: "tgw:rate_limit"
+    fail_open: true
   rules:
     - path: "/api/user/login"
       max_requests: 20

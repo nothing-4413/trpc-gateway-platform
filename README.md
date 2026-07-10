@@ -11,7 +11,7 @@
 - RPC 服务抽象：使用 Protobuf 定义 UserService、FileMetaService、TaskService，UserService 支持本地实现与跨进程 tRPC-like TCP RPC 实现切换。
 - Gateway 到 Local RPC：将 HTTP JSON / Query 转换为 Protobuf 请求并调用本地服务实现。
 - Token 鉴权：登录签发 HS256 JWT，网关统一校验 Authorization Bearer token。
-- 固定窗口限流：支持默认规则与路径级规则，超限返回 42900。
+- 限流：支持进程内固定窗口和 Redis 分布式固定窗口，支持默认规则与路径级规则，超限返回 42900。
 - 服务治理：支持可取消 Deadline、重试、熔断和 fallback 降级。
 - Prometheus metrics：暴露 `/metrics`，记录请求数、状态码、耗时等指标。
 - Debug tracing：暴露 `/debug/traces`，用于查看请求链路，生产默认不回传调试响应头。
@@ -67,6 +67,7 @@ GatewayHandler
 17. HTTP 连接生命周期治理：Keep-Alive、读写超时、Body Limit、优雅退出
 18. 可取消 Deadline：Deadline 状态贯穿 Gateway、治理层、本地 RPC 和服务实现
 19. 跨进程 UserService：独立 `tgw_user_service` 进程 + Gateway 远程 RPC client
+20. Redis 分布式限流：基于 Redis `INCR` / `EXPIRE` / `TTL` 实现跨实例固定窗口限流
 
 ## 构建运行
 

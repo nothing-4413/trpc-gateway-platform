@@ -56,10 +56,19 @@ struct RateLimitRuleConfig {
     int max_requests = 120;
 };
 
+struct RedisRateLimitConfig {
+    bool enabled = false;
+    std::string host = "127.0.0.1";
+    uint16_t port = 6379;
+    std::string key_prefix = "tgw:rate_limit";
+    bool fail_open = true;
+};
+
 struct RateLimitConfig {
     bool enabled = true;
     int window_seconds = 60;
     int default_max_requests = 120;
+    RedisRateLimitConfig redis;
     std::vector<RateLimitRuleConfig> rules;
 };
 

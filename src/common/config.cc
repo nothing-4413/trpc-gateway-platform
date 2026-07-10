@@ -168,6 +168,35 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
             config.rate_limit.default_max_requests
         );
 
+        if (rate_limit["redis"]) {
+            auto redis = rate_limit["redis"];
+            config.rate_limit.redis.enabled = GetOrDefault<bool>(
+                redis,
+                "enabled",
+                config.rate_limit.redis.enabled
+            );
+            config.rate_limit.redis.host = GetOrDefault<std::string>(
+                redis,
+                "host",
+                config.rate_limit.redis.host
+            );
+            config.rate_limit.redis.port = GetOrDefault<uint16_t>(
+                redis,
+                "port",
+                config.rate_limit.redis.port
+            );
+            config.rate_limit.redis.key_prefix = GetOrDefault<std::string>(
+                redis,
+                "key_prefix",
+                config.rate_limit.redis.key_prefix
+            );
+            config.rate_limit.redis.fail_open = GetOrDefault<bool>(
+                redis,
+                "fail_open",
+                config.rate_limit.redis.fail_open
+            );
+        }
+
         if (rate_limit["rules"]) {
             const auto& rules = rate_limit["rules"];
             if (!rules.IsSequence()) {

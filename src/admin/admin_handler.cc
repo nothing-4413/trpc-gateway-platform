@@ -71,7 +71,14 @@ HttpResponse AdminHandler::Runtime(const HttpRequest& request) const {
     data << "\"rate_limit\":{";
     data << "\"enabled\":" << BoolToJson(config_.rate_limit.enabled) << ",";
     data << "\"window_seconds\":" << config_.rate_limit.window_seconds << ",";
-    data << "\"default_max_requests\":" << config_.rate_limit.default_max_requests;
+    data << "\"default_max_requests\":" << config_.rate_limit.default_max_requests << ",";
+    data << "\"redis\":{";
+    data << "\"enabled\":" << BoolToJson(config_.rate_limit.redis.enabled) << ",";
+    data << "\"host\":\"" << JsonEscape(config_.rate_limit.redis.host) << "\",";
+    data << "\"port\":" << config_.rate_limit.redis.port << ",";
+    data << "\"key_prefix\":\"" << JsonEscape(config_.rate_limit.redis.key_prefix) << "\",";
+    data << "\"fail_open\":" << BoolToJson(config_.rate_limit.redis.fail_open);
+    data << "}";
     data << "},";
 
     data << "\"governance\":{";
@@ -170,6 +177,8 @@ HttpResponse AdminHandler::Features(const HttpRequest& request) const {
     data << "{";
     data << "\"auth_enabled\":" << BoolToJson(config_.auth.enabled) << ",";
     data << "\"rate_limit_enabled\":" << BoolToJson(config_.rate_limit.enabled) << ",";
+    data << "\"redis_rate_limit_enabled\":"
+         << BoolToJson(config_.rate_limit.redis.enabled) << ",";
     data << "\"governance_enabled\":" << BoolToJson(config_.governance.enabled) << ",";
     data << "\"retry_enabled\":" << BoolToJson(config_.governance.retry.enabled) << ",";
     data << "\"circuit_breaker_enabled\":"

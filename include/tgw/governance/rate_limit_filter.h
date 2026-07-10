@@ -38,6 +38,19 @@ private:
 
     int ResolveLimit(const RouteMatchResult& match) const;
     std::string BuildKey(const HttpRequest& request, const RouteMatchResult& match) const;
+    RateLimitDecision CheckLocal(
+        const HttpRequest& request,
+        const RouteMatchResult& match,
+        int window_seconds,
+        int limit,
+        const std::string& key
+    );
+    RateLimitDecision CheckRedis(
+        const HttpRequest& request,
+        int window_seconds,
+        int limit,
+        const std::string& key
+    );
 
 private:
     RateLimitConfig config_;

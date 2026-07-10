@@ -18,6 +18,20 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7.2
+    container_name: tgw-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    networks:
+      - tgw-net
 
   prometheus:
     image: prom/prometheus:v2.53.0
@@ -73,6 +87,7 @@ services:
 volumes:
   prometheus-data:
   grafana-data:
+  redis-data:
 
 networks:
   tgw-net:
