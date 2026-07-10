@@ -8,6 +8,7 @@
 #include "tgw/gateway/local_rpc_upstream_client.h"
 #include "tgw/gateway/route_rule.h"
 #include "tgw/gateway/router.h"
+#include "tgw/governance/rate_limit_filter.h"
 #include "tgw/service/file_meta_service.h"
 #include "tgw/service/task_service.h"
 #include "tgw/service/user_service.h"
@@ -44,6 +45,7 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
     auto task_service = std::make_shared<tgw::TaskServiceImpl>();
     auto token_service = std::make_shared<tgw::TokenService>(config.auth);
     auto auth_filter = std::make_shared<tgw::AuthFilter>(config.auth, token_service);
+    auto rate_limit_filter = std::make_shared<tgw::RateLimitFilter>(config.rate_limit);
 
     auto upstream_client = std::make_shared<tgw::LocalRpcUpstreamClient>(
         user_service,
@@ -54,7 +56,8 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
     auto gateway_handler = std::make_shared<tgw::GatewayHandler>(
         route_manager,
         upstream_client,
-        auth_filter
+        auth_filter,
+        rate_limit_filter
     );
 
     router->AddRoute("GET", "/health", [config](const tgw::HttpRequest& req) {
@@ -148,10 +151,12 @@ int main(int argc, char* argv[]) {
         TGW_INFO("worker threads: {}", config.runtime.worker_threads);
         TGW_INFO("route count: {}", config.routes.size());
         TGW_INFO("auth enabled: {}", config.auth.enabled);
-        TGW_INFO("rate limit enabled: {}", config.gateway.enable_rate_limit);
+        TGW_INFO("rate limit enabled: {}", config.rate_limit.enabled);
         TGW_INFO("tracing enabled: {}", config.gateway.enable_tracing);
         TGW_INFO("request timeout: {} ms", config.gateway.request_timeout_ms);
         TGW_INFO("token ttl: {} seconds", config.auth.token_ttl_seconds);
+        TGW_INFO("rate limit window: {} seconds", config.rate_limit.window_seconds);
+        TGW_INFO("rate limit default max requests: {}", config.rate_limit.default_max_requests);
         TGW_INFO("==================================================");
 
         auto router = BuildRouter(config);

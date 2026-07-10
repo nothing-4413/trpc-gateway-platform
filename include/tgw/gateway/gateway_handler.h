@@ -3,6 +3,7 @@
 #include "tgw/auth/auth_filter.h"
 #include "tgw/gateway/route_rule.h"
 #include "tgw/gateway/upstream_client.h"
+#include "tgw/governance/rate_limit_filter.h"
 
 #include <memory>
 
@@ -16,7 +17,8 @@ public:
     GatewayHandler(
         std::shared_ptr<RouteRuleManager> route_manager,
         UpstreamClientPtr upstream_client,
-        AuthFilterPtr auth_filter
+        AuthFilterPtr auth_filter,
+        RateLimitFilterPtr rate_limit_filter
     );
 
     HttpResponse Handle(const HttpRequest& request);
@@ -25,6 +27,7 @@ private:
     std::shared_ptr<RouteRuleManager> route_manager_;
     UpstreamClientPtr upstream_client_;
     AuthFilterPtr auth_filter_;
+    RateLimitFilterPtr rate_limit_filter_;
 };
 
 } // namespace tgw

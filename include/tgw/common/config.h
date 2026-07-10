@@ -39,6 +39,18 @@ struct AuthConfig {
     };
 };
 
+struct RateLimitRuleConfig {
+    std::string path;
+    int max_requests = 120;
+};
+
+struct RateLimitConfig {
+    bool enabled = true;
+    int window_seconds = 60;
+    int default_max_requests = 120;
+    std::vector<RateLimitRuleConfig> rules;
+};
+
 // 单条路由配置。
 // 这里先支持 prefix 匹配，后续可以扩展 exact、regex、header、method 等匹配方式。
 struct RouteConfig {
@@ -56,6 +68,7 @@ struct AppConfig {
     LogConfig log;
     GatewayConfig gateway;
     AuthConfig auth;
+    RateLimitConfig rate_limit;
 
     // 网关路由规则列表
     std::vector<RouteConfig> routes;

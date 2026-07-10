@@ -25,6 +25,20 @@ auth:
   public_paths:
     - "/api/user/login"
 
+rate_limit:
+  enabled: true
+  window_seconds: 60
+  default_max_requests: 120
+  rules:
+    - path: "/api/user/login"
+      max_requests: 20
+    - path: "/api/user"
+      max_requests: 100
+    - path: "/api/file"
+      max_requests: 80
+    - path: "/api/task"
+      max_requests: 100
+
 routes:
   - name: "user-service-route"
     match_type: "prefix"

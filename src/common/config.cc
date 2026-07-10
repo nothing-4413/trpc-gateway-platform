@@ -92,6 +92,46 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
         }
     }
 
+    config.rate_limit.enabled = config.gateway.enable_rate_limit;
+
+    if (root["rate_limit"]) {
+        auto rate_limit = root["rate_limit"];
+        config.rate_limit.enabled = GetOrDefault<bool>(rate_limit, "enabled", config.rate_limit.enabled);
+        config.rate_limit.window_seconds = GetOrDefault<int>(
+            rate_limit,
+            "window_seconds",
+            config.rate_limit.window_seconds
+        );
+        config.rate_limit.default_max_requests = GetOrDefault<int>(
+            rate_limit,
+            "default_max_requests",
+            config.rate_limit.default_max_requests
+        );
+
+        if (rate_limit["rules"]) {
+            const auto& rules = rate_limit["rules"];
+            if (!rules.IsSequence()) {
+                throw std::runtime_error("rate_limit.rules must be a yaml sequence");
+            }
+
+            config.rate_limit.rules.clear();
+            for (const auto& item : rules) {
+                RateLimitRuleConfig rule;
+                rule.path = GetOrDefault<std::string>(item, "path", "");
+                rule.max_requests = GetOrDefault<int>(item, "max_requests", config.rate_limit.default_max_requests);
+
+                if (rule.path.empty()) {
+                    throw std::runtime_error("rate_limit rule path cannot be empty");
+                }
+                if (rule.max_requests <= 0) {
+                    throw std::runtime_error("rate_limit max_requests must be positive, path=" + rule.path);
+                }
+
+                config.rate_limit.rules.push_back(rule);
+            }
+        }
+    }
+
     if (root["routes"]) {
         const auto& routes = root["routes"];
 
