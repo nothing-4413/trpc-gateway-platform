@@ -1,0 +1,121 @@
+== TGW Gateway governance verification ==
+BASE_URL=http://127.0.0.1:8080
+
+[1/4] login
+token=<redacted>
+
+[2/4] timeout verification
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:02 --:--:--     0100   169  100   169    0     0     55      0  0:00:03  0:00:03 --:--:--    55100   169  100   169    0     0     55      0  0:00:03  0:00:03 --:--:--    55
+HTTP/1.1 200 OK
+Server: tgw-gateway
+Content-Type: application/json
+X-Circuit-State: open
+X-Governance-Fallback: true
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 99
+X-RateLimit-Reset: 60
+X-Request-Id: tgw-8873629178-2
+X-Span-Id: fd09a35400000003
+X-Trace-Id: governance-timeout-trace
+Connection: close
+Content-Length: 169
+
+{"code":0,"message":"ok","data":{"degraded":true,"upstream":"UserService","reason":"all retry attempts failed","message":"service degraded, fallback response returned"}}
+[3/4] retry/fallback verification
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   169  100   169    0     0   8450      0 --:--:-- --:--:-- --:--:--  8450
+HTTP/1.1 200 OK
+Server: tgw-gateway
+Content-Type: application/json
+X-Circuit-State: open
+X-Governance-Fallback: true
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 98
+X-RateLimit-Reset: 57
+X-Request-Id: tgw-8876654051-3
+X-Span-Id: b351f7c600000005
+X-Trace-Id: governance-fallback-trace
+Connection: close
+Content-Length: 169
+
+{"code":0,"message":"ok","data":{"degraded":true,"upstream":"UserService","reason":"all retry attempts failed","message":"service degraded, fallback response returned"}}
+[4/4] circuit breaker verification
+force failure 1
+{
+    "code": 0,
+    "message": "ok",
+    "data": {
+        "degraded": true,
+        "upstream": "UserService",
+        "reason": "all retry attempts failed",
+        "message": "service degraded, fallback response returned"
+    }
+}
+force failure 2
+{
+    "code": 0,
+    "message": "ok",
+    "data": {
+        "degraded": true,
+        "upstream": "UserService",
+        "reason": "circuit breaker open",
+        "message": "service degraded, fallback response returned"
+    }
+}
+force failure 3
+{
+    "code": 0,
+    "message": "ok",
+    "data": {
+        "degraded": true,
+        "upstream": "UserService",
+        "reason": "circuit breaker open",
+        "message": "service degraded, fallback response returned"
+    }
+}
+force failure 4
+{
+    "code": 0,
+    "message": "ok",
+    "data": {
+        "degraded": true,
+        "upstream": "UserService",
+        "reason": "circuit breaker open",
+        "message": "service degraded, fallback response returned"
+    }
+}
+force failure 5
+{
+    "code": 0,
+    "message": "ok",
+    "data": {
+        "degraded": true,
+        "upstream": "UserService",
+        "reason": "circuit breaker open",
+        "message": "service degraded, fallback response returned"
+    }
+}
+
+request after repeated failures
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   164  100   164    0     0   160k      0 --:--:-- --:--:-- --:--:--  160k
+HTTP/1.1 200 OK
+Server: tgw-gateway
+Content-Type: application/json
+X-Circuit-State: open
+X-Governance-Fallback: true
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 92
+X-RateLimit-Reset: 57
+X-Request-Id: tgw-8876784791-9
+X-Span-Id: 3966f31e00000011
+X-Trace-Id: governance-circuit-open-check
+Connection: close
+Content-Length: 164
+
+{"code":0,"message":"ok","data":{"degraded":true,"upstream":"UserService","reason":"circuit breaker open","message":"service degraded, fallback response returned"}}
+governance verification finished

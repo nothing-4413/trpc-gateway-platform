@@ -1,0 +1,23 @@
+== collect TGW metrics snapshot ==
+BASE_URL=http://127.0.0.1:8080
+OUT=benchmark/metrics_snapshot.txt
+
+metrics snapshot saved to benchmark/metrics_snapshot.txt
+# HELP tgw_gateway_requests_total Total gateway HTTP requests.
+# TYPE tgw_gateway_requests_total counter
+tgw_gateway_requests_total{path="/api/user/login",upstream="UserService",status="200"} 83
+tgw_gateway_requests_total{path="/api/user/login",upstream="UserService",status="429"} 44
+tgw_gateway_requests_total{path="/api/user/profile",upstream="UserService",status="200"} 208
+tgw_gateway_requests_total{path="/api/user/profile",upstream="UserService",status="429"} 1960
+# HELP tgw_gateway_request_duration_ms_sum Gateway request duration sum in milliseconds.
+# TYPE tgw_gateway_request_duration_ms_sum counter
+tgw_gateway_request_duration_ms_sum{path="/api/user/login",upstream="UserService",status="200"} 0
+tgw_gateway_request_duration_ms_sum{path="/api/user/login",upstream="UserService",status="429"} 0
+tgw_gateway_request_duration_ms_sum{path="/api/user/profile",upstream="UserService",status="200"} 3070
+tgw_gateway_request_duration_ms_sum{path="/api/user/profile",upstream="UserService",status="429"} 11
+# HELP tgw_gateway_request_duration_ms_count Gateway request duration sample count.
+# TYPE tgw_gateway_request_duration_ms_count counter
+tgw_gateway_request_duration_ms_count{path="/api/user/login",upstream="UserService",status="200"} 83
+tgw_gateway_request_duration_ms_count{path="/api/user/login",upstream="UserService",status="429"} 44
+tgw_gateway_request_duration_ms_count{path="/api/user/profile",upstream="UserService",status="200"} 208
+tgw_gateway_request_duration_ms_count{path="/api/user/profile",upstream="UserService",status="429"} 1960

@@ -1,0 +1,51 @@
+== TGW Gateway health benchmark ==
+BASE_URL=http://127.0.0.1:8080
+N=1000
+C=20
+
+
+Summary:
+  Total:	0.0326 secs
+  Slowest:	0.0030 secs
+  Fastest:	0.0001 secs
+  Average:	0.0006 secs
+  Requests/sec:	30658.3917
+  
+  Total data:	72000 bytes
+  Size/request:	72 bytes
+
+Response time histogram:
+  0.000 [1]	|
+  0.000 [298]	|■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.001 [463]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.001 [137]	|■■■■■■■■■■■■
+  0.001 [50]	|■■■■
+  0.002 [27]	|■■
+  0.002 [15]	|■
+  0.002 [5]	|
+  0.002 [2]	|
+  0.003 [1]	|
+  0.003 [1]	|
+
+
+Latency distribution:
+  10%% in 0.0004 secs
+  25%% in 0.0004 secs
+  50%% in 0.0005 secs
+  75%% in 0.0007 secs
+  90%% in 0.0010 secs
+  95%% in 0.0013 secs
+  99%% in 0.0019 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0001 secs, 0.0000 secs, 0.0018 secs
+  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
+  req write:	0.0000 secs, 0.0000 secs, 0.0020 secs
+  resp wait:	0.0004 secs, 0.0001 secs, 0.0016 secs
+  resp read:	0.0001 secs, 0.0000 secs, 0.0010 secs
+
+Status code distribution:
+  [200]	1000 responses
+
+
+

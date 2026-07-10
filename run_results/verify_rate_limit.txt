@@ -1,0 +1,41 @@
+== TGW Gateway rate limit verification ==
+BASE_URL=http://127.0.0.1:8080
+COUNT=30
+
+This script hits /api/user/login.
+Default config limits /api/user/login to 20 requests per 60s.
+
+request=1, status=200
+request=2, status=200
+request=3, status=200
+request=4, status=200
+request=5, status=200
+request=6, status=200
+request=7, status=200
+request=8, status=200
+request=9, status=200
+request=10, status=200
+request=11, status=200
+request=12, status=200
+request=13, status=200
+request=14, status=200
+request=15, status=200
+request=16, status=200
+request=17, status=200
+request=18, status=200
+request=19, status=200
+request=20, status=200
+request=21, status=429
+request=22, status=429
+request=23, status=429
+request=24, status=429
+request=25, status=429
+request=26, status=429
+request=27, status=429
+request=28, status=429
+request=29, status=429
+request=30, status=429
+
+ok_count=20
+limited_count=10
+rate limit verification passed

@@ -1,0 +1,53 @@
+== TGW Gateway authenticated profile benchmark ==
+BASE_URL=http://127.0.0.1:8080
+N=80
+C=10
+
+[1/2] login and fetch token
+[2/2] run hey benchmark
+
+Summary:
+  Total:	0.0093 secs
+  Slowest:	0.0032 secs
+  Fastest:	0.0003 secs
+  Average:	0.0010 secs
+  Requests/sec:	8590.5893
+  
+  Total data:	8960 bytes
+  Size/request:	112 bytes
+
+Response time histogram:
+  0.000 [1]	|■
+  0.001 [6]	|■■■■■■
+  0.001 [40]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.001 [21]	|■■■■■■■■■■■■■■■■■■■■■
+  0.001 [3]	|■■■
+  0.002 [0]	|
+  0.002 [1]	|■
+  0.002 [2]	|■■
+  0.003 [1]	|■
+  0.003 [3]	|■■■
+  0.003 [2]	|■■
+
+
+Latency distribution:
+  10%% in 0.0006 secs
+  25%% in 0.0007 secs
+  50%% in 0.0008 secs
+  75%% in 0.0010 secs
+  90%% in 0.0021 secs
+  95%% in 0.0027 secs
+  0%% in 0.0000 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0002 secs, 0.0000 secs, 0.0020 secs
+  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
+  req write:	0.0000 secs, 0.0000 secs, 0.0008 secs
+  resp wait:	0.0006 secs, 0.0002 secs, 0.0010 secs
+  resp read:	0.0001 secs, 0.0000 secs, 0.0005 secs
+
+Status code distribution:
+  [200]	80 responses
+
+
+
