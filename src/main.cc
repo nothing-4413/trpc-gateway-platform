@@ -1,3 +1,4 @@
+#include "tgw/admin/admin_handler.h"
 #include "tgw/common/config.h"
 #include "tgw/common/logger.h"
 #include "tgw/common/status.h"
@@ -13,6 +14,7 @@
 #include "tgw/service/file_meta_service.h"
 #include "tgw/service/task_service.h"
 #include "tgw/service/user_service.h"
+#include "tgw/admin/admin_handler.h"
 
 #include <exception>
 #include <iostream>
@@ -61,6 +63,11 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         auth_filter,
         rate_limit_filter,
         metrics
+    );
+    auto admin_handler = std::make_shared<tgw::AdminHandler>(
+        config,
+        router,
+        route_manager
     );
 
     router->AddRoute("GET", "/health", [config](const tgw::HttpRequest& req) {
@@ -132,6 +139,29 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         return tgw::BuildPrometheusResponse(metrics);
     });
 
+    router->AddRoute("GET", "/admin/runtime", [admin_handler](const tgw::HttpRequest& req) {
+        return admin_handler->Runtime(req);
+    });
+
+    router->AddRoute("GET", "/admin/routes", [admin_handler](const tgw::HttpRequest& req) {
+        return admin_handler->Routes(req);
+    });
+    
+    router->AddRoute("GET", "/routes", [admin_handler](const tgw::HttpRequest& req) {
+        return admin_handler->Routes(req);
+    });
+
+    router->AddRoute("GET", "/admin/routes", [admin_handler](const tgw::HttpRequest& req) {
+        return admin_handler->Routes(req);
+    });
+
+    router->AddRoute("GET", "/admin/runtime", [admin_handler](const tgw::HttpRequest& req) {
+        return admin_handler->Runtime(req);
+    });
+
+    router->AddRoute("GET", "/admin/features", [admin_handler](const tgw::HttpRequest& req) {
+        return admin_handler->Features(req);
+    });
     // 所有没有精确匹配到的请求都进入 GatewayHandler。
     // GatewayHandler 内部会根据配置路由决定转发到哪个 upstream。
     router->SetFallback([gateway_handler](const tgw::HttpRequest& req) {

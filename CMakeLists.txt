@@ -75,6 +75,7 @@ target_link_libraries(tgw_rpc_core
 
 add_executable(tgw_gateway
     src/main.cc
+    src/admin/admin_handler.cc
     src/auth/auth_filter.cc
     src/auth/token_service.cc
     src/common/config.cc
