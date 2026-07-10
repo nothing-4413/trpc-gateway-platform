@@ -93,6 +93,7 @@ struct TracingConfig {
 
     // 是否解析 W3C traceparent header。
     bool accept_traceparent = true;
+    bool expose_debug_headers = false;
 };
 
 struct RouteConfig {

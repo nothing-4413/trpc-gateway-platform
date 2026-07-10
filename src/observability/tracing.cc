@@ -49,6 +49,10 @@ bool Tracer::Enabled() const {
     return config_.enabled;
 }
 
+bool Tracer::ExposeDebugHeaders() const {
+    return config_.expose_debug_headers;
+}
+
 TraceSpan Tracer::StartServerSpan(
     const HttpRequest& request,
     const std::string& name

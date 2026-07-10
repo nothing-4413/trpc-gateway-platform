@@ -19,10 +19,12 @@
 #include "tgw/service/user_service.h"
 
 #include <exception>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace {
 
@@ -39,6 +41,26 @@ std::string ParseConfigPath(int argc, char* argv[]) {
     }
 
     return config_path;
+}
+
+std::function<tgw::HttpResponse(const tgw::HttpRequest&)> RequireAuth(
+    tgw::AuthFilterPtr auth_filter,
+    std::function<tgw::HttpResponse(const tgw::HttpRequest&)> handler
+) {
+    return [auth_filter = std::move(auth_filter), handler = std::move(handler)](
+        const tgw::HttpRequest& req
+    ) {
+        if (!auth_filter) {
+            return handler(req);
+        }
+
+        auto auth_result = auth_filter->Check(req);
+        if (!auth_result.allowed) {
+            return auth_result.response;
+        }
+
+        return handler(req);
+    };
 }
 
 std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
@@ -105,17 +127,26 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         return admin_handler->Routes(req);
     });
 
-    router->AddRoute("GET", "/admin/routes", [admin_handler](const tgw::HttpRequest& req) {
-        return admin_handler->Routes(req);
-    });
+    router->AddRoute("GET", "/admin/routes", RequireAuth(
+        auth_filter,
+        [admin_handler](const tgw::HttpRequest& req) {
+            return admin_handler->Routes(req);
+        }
+    ));
 
-    router->AddRoute("GET", "/admin/runtime", [admin_handler](const tgw::HttpRequest& req) {
-        return admin_handler->Runtime(req);
-    });
+    router->AddRoute("GET", "/admin/runtime", RequireAuth(
+        auth_filter,
+        [admin_handler](const tgw::HttpRequest& req) {
+            return admin_handler->Runtime(req);
+        }
+    ));
 
-    router->AddRoute("GET", "/admin/features", [admin_handler](const tgw::HttpRequest& req) {
-        return admin_handler->Features(req);
-    });
+    router->AddRoute("GET", "/admin/features", RequireAuth(
+        auth_filter,
+        [admin_handler](const tgw::HttpRequest& req) {
+            return admin_handler->Features(req);
+        }
+    ));
 
     router->AddRoute("GET", "/metrics", [metrics](const tgw::HttpRequest& req) {
         (void)req;

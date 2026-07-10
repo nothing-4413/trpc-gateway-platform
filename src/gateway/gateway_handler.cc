@@ -61,11 +61,11 @@ HttpResponse GatewayHandler::Handle(const HttpRequest& request) {
             );
         }
 
-        if (!gateway_span.trace_id.empty()) {
+        if (tracer_ && tracer_->ExposeDebugHeaders() && !gateway_span.trace_id.empty()) {
             rsp.headers["X-Trace-Id"] = gateway_span.trace_id;
         }
 
-        if (!gateway_span.span_id.empty()) {
+        if (tracer_ && tracer_->ExposeDebugHeaders() && !gateway_span.span_id.empty()) {
             rsp.headers["X-Span-Id"] = gateway_span.span_id;
         }
 

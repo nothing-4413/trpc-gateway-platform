@@ -10,12 +10,12 @@
 - 配置化路由：通过 YAML 配置前缀路由、上游服务、超时时间和路径裁剪。
 - RPC 服务抽象：使用 Protobuf 定义 UserService、FileMetaService、TaskService。
 - Gateway 到 Local RPC：将 HTTP JSON / Query 转换为 Protobuf 请求并调用本地服务实现。
-- Token 鉴权：登录签发 JWT 风格 token，网关统一校验 Authorization Bearer token。
+- Token 鉴权：登录签发 HS256 JWT，网关统一校验 Authorization Bearer token。
 - 固定窗口限流：支持默认规则与路径级规则，超限返回 42900。
 - 服务治理：支持超时、重试、熔断和 fallback 降级。
 - Prometheus metrics：暴露 `/metrics`，记录请求数、状态码、耗时等指标。
-- Debug tracing：暴露 `/debug/traces`，用于查看请求链路。
-- Admin 接口：暴露 `/admin/runtime`、`/admin/routes`、`/admin/features`。
+- Debug tracing：暴露 `/debug/traces`，用于查看请求链路，生产默认不回传调试响应头。
+- Admin 接口：暴露 `/admin/runtime`、`/admin/routes`、`/admin/features`，需要 Bearer token 访问。
 - Docker Compose 配置：提供 Prometheus / Grafana 可观测性部署文件。
 - Benchmark：提供 hey / wrk 压测脚本与 CentOS 实测结果。
 
@@ -95,9 +95,9 @@ curl -v --max-time 3 http://127.0.0.1:8080/health
 - `GET /api/user/profile?user_id=10001`
 - `GET /metrics`
 - `GET /debug/traces`
-- `GET /admin/runtime`
-- `GET /admin/routes`
-- `GET /admin/features`
+- `GET /admin/runtime`，需要 Bearer token
+- `GET /admin/routes`，需要 Bearer token
+- `GET /admin/features`，需要 Bearer token
 
 登录示例：
 

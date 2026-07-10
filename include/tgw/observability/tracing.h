@@ -72,6 +72,7 @@ public:
     std::string RenderRecentSpansJson() const;
 
     bool Enabled() const;
+    bool ExposeDebugHeaders() const;
 
 private:
     bool ShouldSample() const;

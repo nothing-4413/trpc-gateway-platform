@@ -3,9 +3,7 @@
 #include "tgw/common/config.h"
 
 #include <cstdint>
-#include <map>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
 
@@ -35,8 +33,6 @@ private:
 
 private:
     AuthConfig config_;
-    mutable std::mutex mutex_;
-    mutable std::map<std::string, TokenRecord> tokens_;
 };
 
 using TokenServicePtr = std::shared_ptr<TokenService>;

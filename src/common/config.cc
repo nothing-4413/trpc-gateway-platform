@@ -271,6 +271,11 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
             "accept_traceparent",
             config.tracing.accept_traceparent
         );
+        config.tracing.expose_debug_headers = GetOrDefault<bool>(
+            tracing,
+            "expose_debug_headers",
+            config.tracing.expose_debug_headers
+        );
 
         if (config.tracing.sample_ratio < 0.0 || config.tracing.sample_ratio > 1.0) {
             throw std::runtime_error("tracing.sample_ratio must be between 0.0 and 1.0");

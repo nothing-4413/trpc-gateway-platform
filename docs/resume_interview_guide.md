@@ -11,7 +11,7 @@
 - 设计并实现基于 Boost.Beast 的 HTTP Gateway，封装统一 `HttpRequest` / `HttpResponse`，支持 request id 透传和统一 JSON 响应。
 - 实现 YAML 配置化路由系统，支持前缀匹配、最长路径优先、strip prefix 和 upstream 抽象。
 - 使用 Protobuf 定义 User / FileMeta / Task 服务接口，实现 Gateway 到本地 RPC 服务的协议转换与调度。
-- 实现 Token 鉴权过滤器，登录接口签发 JWT 风格 token，业务接口统一校验 Bearer token。
+- 实现 Token 鉴权过滤器，登录接口签发 HS256 JWT，业务接口统一校验 Bearer token。
 - 实现固定窗口限流，支持默认规则和路径级规则，超限统一返回 42900。
 - 实现服务治理能力，包括超时、重试、熔断和 fallback 降级，降低下游异常对网关的影响。
 - 接入 Prometheus metrics、Debug traces 和 Admin 管理接口，提升运行时可观测性。
@@ -25,13 +25,13 @@
 
 路由层是配置化的，配置文件里可以定义 `/api/user`、`/api/file`、`/api/task` 这样的前缀路由，每条路由可以配置 upstream、timeout 和是否 strip prefix。路由匹配时采用最长前缀优先，避免 `/api/user/admin` 被 `/api/user` 提前匹配。
 
-鉴权模块采用过滤器设计。登录接口是 public path，登录成功后生成 JWT 风格 token，其他接口要求携带 `Authorization: Bearer <token>`。鉴权成功后，网关会把用户信息注入 `ForwardContext`，后续服务可以基于这个上下文处理业务。
+鉴权模块采用过滤器设计。登录接口是 public path，登录成功后生成 HS256 JWT，其他业务接口和 Admin 接口要求携带 `Authorization: Bearer <token>`。鉴权成功后，网关会把用户信息注入 `ForwardContext`，后续服务可以基于这个上下文处理业务。
 
 限流模块采用固定窗口算法，支持默认额度和路径级规则。例如登录接口单独限制，业务接口也可以按路径配置额度。限流 key 可以基于用户 ID 或客户端 IP，超限会返回统一错误码 42900。
 
 服务治理模块放在 UpstreamClient 外层，通过组合方式包装 LocalRpcUpstreamClient。它支持超时、重试、熔断和 fallback。当下游连续失败时，熔断器会打开，后续请求直接走降级逻辑，避免继续打爆下游。
 
-可观测性方面，项目暴露了 `/metrics`，Prometheus 可以抓取请求数、状态码、耗时等指标；`/debug/traces` 可以查看调试链路；`/admin/runtime`、`/admin/routes`、`/admin/features` 可以查看运行时配置和路由状态。
+可观测性方面，项目暴露了 `/metrics`，Prometheus 可以抓取请求数、状态码、耗时等指标；`/debug/traces` 可以查看调试链路；`/admin/runtime`、`/admin/routes`、`/admin/features` 可以查看运行时配置和路由状态。生产配置默认不向响应头暴露 `X-Trace-Id` / `X-Span-Id` 这类调试信息。
 
 项目最后在 CentOS 虚拟机里用 CMake 原生编译运行，并用 hey 做压测。`/health` 在 5000 请求、50 并发下达到约 32681 req/s；限流验证中登录接口前 20 次返回 200，后 10 次返回 429；服务治理验证中观察到了重试失败、熔断打开和 fallback 降级。
 

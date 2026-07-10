@@ -27,9 +27,6 @@ auth:
     - "/routes"
     - "/metrics"
     - "/debug/traces"
-    - "/admin/runtime"
-    - "/admin/routes"
-    - "/admin/features"
     - "/api/user/login"
 
 rate_limit:
@@ -68,6 +65,7 @@ tracing:
   sample_ratio: 1.0
   max_finished_spans: 1024
   accept_traceparent: true
+  expose_debug_headers: false
 
 routes:
   - name: "user-service-route"
