@@ -9,6 +9,7 @@
 ## 简历要点
 
 - 设计并实现基于 Boost.Beast 的异步 HTTP Gateway，封装统一 `HttpRequest` / `HttpResponse`，支持 request id 透传和统一 JSON 响应，并让 `io_threads` 承担网络 IO 事件循环。
+- 补齐 HTTP 连接生命周期治理，支持 Keep-Alive、读写超时、Body Limit 和 SIGINT/SIGTERM 优雅退出。
 - 实现 YAML 配置化路由系统，支持前缀匹配、最长路径优先、strip prefix 和 upstream 抽象。
 - 使用 Protobuf 定义 User / FileMeta / Task 服务接口，实现 Gateway 到本地 RPC 服务的协议转换与调度。
 - 实现 Token 鉴权过滤器，登录接口签发 HS256 JWT，业务接口统一校验 Bearer token。
@@ -22,6 +23,8 @@
 这个项目是我参考 tRPC-Cpp 架构思想做的一个 C++ 微服务网关项目。它不是简单的 HTTP demo，而是围绕真实微服务网关的核心链路做了分层设计。
 
 整体链路是：客户端请求先进入基于 Boost.Beast 实现的 HTTP Server，然后由 Router 做精确路由或进入 GatewayHandler。GatewayHandler 内部按顺序执行鉴权、限流、服务治理，最后通过 UpstreamClient 调用本地 RPC 服务。服务层用 Protobuf 定义接口，包括 UserService、FileMetaService 和 TaskService。
+
+HTTP Server 采用异步 accept、异步 read 和异步 write，网络事件由 `io_threads` 承担，业务逻辑再投递到 worker 线程池。连接层支持 Keep-Alive 复用，同时配置读超时、写超时和请求体大小限制，避免慢请求、慢写出或超大 body 长时间占用资源；进程收到 SIGINT/SIGTERM 后会关闭 acceptor 并停止 io_context，实现可控退出。
 
 路由层是配置化的，配置文件里可以定义 `/api/user`、`/api/file`、`/api/task` 这样的前缀路由，每条路由可以配置 upstream、timeout 和是否 strip prefix。路由匹配时采用最长前缀优先，避免 `/api/user/admin` 被 `/api/user` 提前匹配。
 

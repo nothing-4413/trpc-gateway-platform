@@ -2,6 +2,10 @@ server:
   name: "tgw-gateway"
   host: "0.0.0.0"
   port: 8080
+  keep_alive: true
+  read_timeout_ms: 3000
+  write_timeout_ms: 3000
+  body_limit_bytes: 1048576
 
 runtime:
   io_threads: 2

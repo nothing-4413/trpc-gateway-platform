@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <csignal>
 #include <functional>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -66,11 +68,15 @@ class HttpSession : public std::enable_shared_from_this<HttpSession> {
 public:
     HttpSession(
         tcp::socket socket,
+        ServerConfig server_config,
         std::shared_ptr<Router> router,
         asio::thread_pool& worker_pool,
         std::function<std::string()> request_id_generator
     )
         : socket_(std::move(socket)),
+          read_timer_(socket_.get_executor()),
+          write_timer_(socket_.get_executor()),
+          server_config_(std::move(server_config)),
           router_(std::move(router)),
           worker_pool_(worker_pool),
           request_id_generator_(std::move(request_id_generator)) {}
@@ -81,13 +87,26 @@ public:
 
 private:
     void ReadRequest() {
+        parser_ = std::make_unique<http::request_parser<http::string_body>>();
+        parser_->body_limit(server_config_.body_limit_bytes);
+
+        read_timer_.expires_after(std::chrono::milliseconds(server_config_.read_timeout_ms));
         auto self = shared_from_this();
+        read_timer_.async_wait([self](beast::error_code ec) {
+            if (!ec) {
+                TGW_WARN("read timeout, closing connection");
+                self->Close();
+            }
+        });
+
         http::async_read(
             socket_,
             buffer_,
-            request_,
+            *parser_,
             [self](beast::error_code ec, std::size_t bytes_transferred) {
                 (void)bytes_transferred;
+                self->read_timer_.cancel();
+
                 if (ec) {
                     if (ec != http::error::end_of_stream) {
                         TGW_WARN("async read request failed: {}", ec.message());
@@ -96,6 +115,8 @@ private:
                     return;
                 }
 
+                self->request_ = self->parser_->release();
+                self->parser_.reset();
                 self->DispatchRequest();
             }
         );
@@ -148,17 +169,29 @@ private:
             response_->set(header.first, header.second);
         }
 
-        response_->keep_alive(false);
+        response_->keep_alive(server_config_.keep_alive && request_.keep_alive());
         response_->body() = std::move(tgw_rsp.body);
         response_->prepare_payload();
 
+        write_timer_.expires_after(std::chrono::milliseconds(server_config_.write_timeout_ms));
         auto self = shared_from_this();
+        write_timer_.async_wait([self](beast::error_code ec) {
+            if (!ec) {
+                TGW_WARN("write timeout, closing connection");
+                self->Close();
+            }
+        });
+
         http::async_write(
             socket_,
             *response_,
             [self](beast::error_code ec, std::size_t bytes_transferred) {
+                self->write_timer_.cancel();
+
                 if (ec) {
                     TGW_WARN("async write response failed: {}", ec.message());
+                    self->Close();
+                    return;
                 } else {
                     TGW_INFO(
                         "request finished, request_id={}, status={}, response_bytes={}",
@@ -168,6 +201,16 @@ private:
                     );
                 }
 
+                bool keep_alive = self->response_->keep_alive();
+                self->response_.reset();
+                self->request_ = {};
+                self->request_id_.clear();
+
+                if (keep_alive) {
+                    self->ReadRequest();
+                    return;
+                }
+
                 self->Close();
             }
         );
@@ -175,17 +218,23 @@ private:
 
     void Close() {
         beast::error_code ec;
+        read_timer_.cancel(ec);
+        write_timer_.cancel(ec);
         socket_.shutdown(tcp::socket::shutdown_send, ec);
         socket_.close(ec);
     }
 
 private:
     tcp::socket socket_;
+    asio::steady_timer read_timer_;
+    asio::steady_timer write_timer_;
+    ServerConfig server_config_;
     std::shared_ptr<Router> router_;
     asio::thread_pool& worker_pool_;
     std::function<std::string()> request_id_generator_;
 
     beast::flat_buffer buffer_;
+    std::unique_ptr<http::request_parser<http::string_body>> parser_;
     http::request<http::string_body> request_;
     std::shared_ptr<http::response<http::string_body>> response_;
     std::string request_id_;
@@ -224,6 +273,19 @@ void HttpServer::Start() {
 
     DoAccept();
 
+    asio::signal_set signals(io_context_, SIGINT, SIGTERM);
+    signals.async_wait([this](beast::error_code ec, int signal_number) {
+        if (ec) {
+            return;
+        }
+
+        TGW_INFO("received signal {}, shutting down http server", signal_number);
+
+        beast::error_code close_ec;
+        acceptor_.close(close_ec);
+        io_context_.stop();
+    });
+
     auto work_guard = asio::make_work_guard(io_context_);
     std::vector<std::thread> io_threads;
     int thread_count = std::max(runtime_config_.io_threads, 1);
@@ -245,10 +307,13 @@ void HttpServer::Start() {
 void HttpServer::DoAccept() {
     acceptor_.async_accept([this](beast::error_code ec, tcp::socket socket) {
         if (ec) {
-            TGW_ERROR("async accept connection failed: {}", ec.message());
+            if (acceptor_.is_open()) {
+                TGW_ERROR("async accept connection failed: {}", ec.message());
+            }
         } else {
             auto session = std::make_shared<HttpSession>(
                 std::move(socket),
+                server_config_,
                 router_,
                 worker_pool_,
                 [this]() {
@@ -258,7 +323,9 @@ void HttpServer::DoAccept() {
             session->Start();
         }
 
-        DoAccept();
+        if (acceptor_.is_open()) {
+            DoAccept();
+        }
     });
 }
 

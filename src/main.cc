@@ -179,6 +179,10 @@ int main(int argc, char* argv[]) {
         TGW_INFO("tRPC Gateway Platform starting...");
         TGW_INFO("service name: {}", config.server.name);
         TGW_INFO("listen address: {}:{}", config.server.host, config.server.port);
+        TGW_INFO("keep alive: {}", config.server.keep_alive);
+        TGW_INFO("read timeout: {} ms", config.server.read_timeout_ms);
+        TGW_INFO("write timeout: {} ms", config.server.write_timeout_ms);
+        TGW_INFO("body limit: {} bytes", config.server.body_limit_bytes);
         TGW_INFO("io threads: {}", config.runtime.io_threads);
         TGW_INFO("worker threads: {}", config.runtime.worker_threads);
         TGW_INFO("route count: {}", config.routes.size());

@@ -6,7 +6,7 @@
 
 ## 核心能力
 
-- HTTP Gateway：基于 Boost.Asio / Boost.Beast 实现异步 HTTP 接入，`io_threads` 负责网络 IO，`worker_threads` 负责业务分发。
+- HTTP Gateway：基于 Boost.Asio / Boost.Beast 实现异步 HTTP 接入，`io_threads` 负责网络 IO，`worker_threads` 负责业务分发，支持 Keep-Alive、读写超时、Body Limit 和优雅退出。
 - 配置化路由：通过 YAML 配置前缀路由、上游服务、超时时间和路径裁剪。
 - RPC 服务抽象：使用 Protobuf 定义 UserService、FileMetaService、TaskService。
 - Gateway 到 Local RPC：将 HTTP JSON / Query 转换为 Protobuf 请求并调用本地服务实现。
@@ -62,6 +62,9 @@ GatewayHandler
 12. Docker Compose 部署文件和可观测性配置
 13. benchmark 压测脚本和 run_results 运行结果
 14. 最终收尾：构建问题排查、代码一致性检查、提交记录整理、项目说明
+15. 标准 JWT、生产 Debug Header 收口、Admin 接口保护
+16. 异步 HTTP Server：`io_threads` 真正承担网络 IO
+17. HTTP 连接生命周期治理：Keep-Alive、读写超时、Body Limit、优雅退出
 
 ## 构建运行
 

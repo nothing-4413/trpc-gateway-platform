@@ -11,6 +11,10 @@ struct ServerConfig {
     std::string name = "tgw-gateway";
     std::string host = "0.0.0.0";
     uint16_t port = 8080;
+    bool keep_alive = true;
+    int read_timeout_ms = 3000;
+    int write_timeout_ms = 3000;
+    std::size_t body_limit_bytes = 1048576;
 };
 
 struct RuntimeConfig {

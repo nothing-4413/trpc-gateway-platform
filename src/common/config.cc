@@ -35,6 +35,32 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
         config.server.name = GetOrDefault<std::string>(server, "name", config.server.name);
         config.server.host = GetOrDefault<std::string>(server, "host", config.server.host);
         config.server.port = GetOrDefault<uint16_t>(server, "port", config.server.port);
+        config.server.keep_alive = GetOrDefault<bool>(server, "keep_alive", config.server.keep_alive);
+        config.server.read_timeout_ms = GetOrDefault<int>(
+            server,
+            "read_timeout_ms",
+            config.server.read_timeout_ms
+        );
+        config.server.write_timeout_ms = GetOrDefault<int>(
+            server,
+            "write_timeout_ms",
+            config.server.write_timeout_ms
+        );
+        config.server.body_limit_bytes = GetOrDefault<std::size_t>(
+            server,
+            "body_limit_bytes",
+            config.server.body_limit_bytes
+        );
+
+        if (config.server.read_timeout_ms <= 0) {
+            throw std::runtime_error("server.read_timeout_ms must be positive");
+        }
+        if (config.server.write_timeout_ms <= 0) {
+            throw std::runtime_error("server.write_timeout_ms must be positive");
+        }
+        if (config.server.body_limit_bytes == 0) {
+            throw std::runtime_error("server.body_limit_bytes must be positive");
+        }
     }
 
     if (root["runtime"]) {
