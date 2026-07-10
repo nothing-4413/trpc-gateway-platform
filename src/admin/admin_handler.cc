@@ -96,6 +96,15 @@ HttpResponse AdminHandler::Runtime(const HttpRequest& request) const {
          << JsonEscape(config_.governance.fallback.message) << "\"";
     data << "}";
 
+    data << "},";
+
+    data << "\"tracing\":{";
+    data << "\"enabled\":" << BoolToJson(config_.tracing.enabled) << ",";
+    data << "\"service_name\":\"" << JsonEscape(config_.tracing.service_name) << "\",";
+    data << "\"sample_ratio\":" << config_.tracing.sample_ratio << ",";
+    data << "\"max_finished_spans\":" << config_.tracing.max_finished_spans << ",";
+    data << "\"accept_traceparent\":"
+         << BoolToJson(config_.tracing.accept_traceparent);
     data << "}";
 
     data << "}";
@@ -160,7 +169,7 @@ HttpResponse AdminHandler::Features(const HttpRequest& request) const {
          << BoolToJson(config_.governance.circuit_breaker.enabled) << ",";
     data << "\"fallback_enabled\":"
          << BoolToJson(config_.governance.fallback.enabled) << ",";
-    data << "\"tracing_enabled\":" << BoolToJson(config_.gateway.enable_tracing) << ",";
+    data << "\"tracing_enabled\":" << BoolToJson(config_.tracing.enabled) << ",";
     data << "\"metrics_enabled\":true,";
     data << "\"admin_enabled\":true";
     data << "}";

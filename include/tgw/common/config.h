@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -51,21 +52,13 @@ struct RateLimitConfig {
     std::vector<RateLimitRuleConfig> rules;
 };
 
-// 重试配置。
-// max_attempts 表示总调用次数，包括第一次正常调用。
-// 例如 max_attempts = 2 表示：首次调用 + 1 次重试。
 struct RetryConfig {
     bool enabled = true;
     int max_attempts = 2;
     int backoff_ms = 20;
-
-    // 默认不重试 POST/PUT/DELETE，避免非幂等请求被重复执行。
     bool retry_non_idempotent = false;
 };
 
-// 熔断配置。
-// 连续失败达到 failure_threshold 后，熔断器进入 OPEN 状态。
-// open_seconds 后进入 HALF_OPEN 半开探测状态。
 struct CircuitBreakerConfig {
     bool enabled = true;
     int failure_threshold = 5;
@@ -73,8 +66,6 @@ struct CircuitBreakerConfig {
     int half_open_success_threshold = 2;
 };
 
-// 降级配置。
-// 熔断打开或重试失败后，可以返回可控 fallback 响应。
 struct FallbackConfig {
     bool enabled = true;
     std::string message = "service degraded";
@@ -87,7 +78,23 @@ struct GovernanceConfig {
     FallbackConfig fallback;
 };
 
-// 单条路由配置。
+// 链路追踪配置。
+// 当前模块实现内存 Span 收集和 TraceId 贯穿。
+// 后续可以在此基础上接 Jaeger / OpenTelemetry exporter。
+struct TracingConfig {
+    bool enabled = true;
+    std::string service_name = "tgw-gateway";
+
+    // 采样率，0.0 表示不采样，1.0 表示全采样。
+    double sample_ratio = 1.0;
+
+    // 内存中最多保留多少条已完成 span。
+    std::size_t max_finished_spans = 1024;
+
+    // 是否解析 W3C traceparent header。
+    bool accept_traceparent = true;
+};
+
 struct RouteConfig {
     std::string name;
     std::string match_type = "prefix";
@@ -105,6 +112,7 @@ struct AppConfig {
     AuthConfig auth;
     RateLimitConfig rate_limit;
     GovernanceConfig governance;
+    TracingConfig tracing;
 
     std::vector<RouteConfig> routes;
 };

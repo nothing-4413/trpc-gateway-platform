@@ -88,6 +88,7 @@ add_executable(tgw_gateway
     src/governance/rate_limit_filter.cc
     src/governance/governance_upstream_client.cc
     src/observability/metrics.cc
+    src/observability/tracing.cc
 )
 
 target_include_directories(tgw_gateway

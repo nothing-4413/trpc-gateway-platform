@@ -4,6 +4,7 @@
 #include "tgw/common/status.h"
 
 #include <chrono>
+#include <map>
 #include <string>
 #include <utility>
 
@@ -14,21 +15,30 @@ GatewayHandler::GatewayHandler(
     UpstreamClientPtr upstream_client,
     AuthFilterPtr auth_filter,
     RateLimitFilterPtr rate_limit_filter,
-    MetricsRegistryPtr metrics
+    MetricsRegistryPtr metrics,
+    TracerPtr tracer
 )
     : route_manager_(std::move(route_manager)),
       upstream_client_(std::move(upstream_client)),
       auth_filter_(std::move(auth_filter)),
       rate_limit_filter_(std::move(rate_limit_filter)),
-      metrics_(std::move(metrics)) {}
+      metrics_(std::move(metrics)),
+      tracer_(std::move(tracer)) {}
 
 HttpResponse GatewayHandler::Handle(const HttpRequest& request) {
     auto started_at = std::chrono::steady_clock::now();
+
+    TraceSpan gateway_span;
+    if (tracer_) {
+        gateway_span = tracer_->StartServerSpan(request, "gateway.handle");
+    }
+
     auto finish = [&](HttpResponse rsp, const std::string& upstream) {
         if (metrics_) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - started_at
             ).count();
+
             metrics_->RecordRequest(
                 request.path,
                 upstream.empty() ? "none" : upstream,
@@ -36,6 +46,29 @@ HttpResponse GatewayHandler::Handle(const HttpRequest& request) {
                 static_cast<uint64_t>(elapsed)
             );
         }
+
+        if (tracer_) {
+            tracer_->FinishSpan(
+                gateway_span,
+                "server",
+                request.path,
+                upstream.empty() ? "none" : upstream,
+                rsp.status,
+                {
+                    {"http.method", request.method},
+                    {"request.id", request.request_id}
+                }
+            );
+        }
+
+        if (!gateway_span.trace_id.empty()) {
+            rsp.headers["X-Trace-Id"] = gateway_span.trace_id;
+        }
+
+        if (!gateway_span.span_id.empty()) {
+            rsp.headers["X-Span-Id"] = gateway_span.span_id;
+        }
+
         return rsp;
     };
 
@@ -59,14 +92,24 @@ HttpResponse GatewayHandler::Handle(const HttpRequest& request) {
 
     HttpRequest forward_request = request;
 
+    if (!gateway_span.trace_id.empty()) {
+        forward_request.headers["X-Trace-Id"] = gateway_span.trace_id;
+    }
+
+    if (!gateway_span.span_id.empty()) {
+        forward_request.headers["X-Parent-Span-Id"] = gateway_span.span_id;
+    }
+
     if (auth_filter_) {
         auto auth_result = auth_filter_->Check(request);
+
         if (!auth_result.allowed) {
             TGW_WARN(
                 "gateway auth rejected, request_id={}, path={}",
                 request.request_id,
                 request.path
             );
+
             return finish(auth_result.response, match->route.upstream);
         }
 
@@ -77,8 +120,10 @@ HttpResponse GatewayHandler::Handle(const HttpRequest& request) {
     }
 
     RateLimitDecision rate_limit_decision;
+
     if (rate_limit_filter_) {
         rate_limit_decision = rate_limit_filter_->Check(forward_request, match.value());
+
         if (!rate_limit_decision.allowed) {
             TGW_WARN(
                 "gateway rate limited, request_id={}, path={}, key={}, limit={}",
@@ -87,15 +132,37 @@ HttpResponse GatewayHandler::Handle(const HttpRequest& request) {
                 rate_limit_decision.key,
                 rate_limit_decision.limit
             );
+
             return finish(rate_limit_decision.response, match->route.upstream);
         }
     }
 
     ForwardContext ctx = ForwardContext::Build(forward_request, match.value());
 
+    TraceSpan upstream_span;
+    if (tracer_) {
+        upstream_span = tracer_->StartClientSpan(
+            gateway_span,
+            "upstream." + ctx.upstream
+        );
+
+        if (!upstream_span.trace_id.empty()) {
+            ctx.headers["X-Trace-Id"] = upstream_span.trace_id;
+        }
+
+        if (!upstream_span.span_id.empty()) {
+            ctx.headers["X-Span-Id"] = upstream_span.span_id;
+        }
+
+        if (!upstream_span.parent_span_id.empty()) {
+            ctx.headers["X-Parent-Span-Id"] = upstream_span.parent_span_id;
+        }
+    }
+
     TGW_INFO(
-        "gateway forward start, request_id={}, path={}, upstream={}, upstream_path={}, timeout_ms={}",
+        "gateway forward start, request_id={}, trace_id={}, path={}, upstream={}, upstream_path={}, timeout_ms={}",
         ctx.request_id,
+        gateway_span.trace_id,
         request.path,
         ctx.upstream,
         ctx.upstream_path,
@@ -104,6 +171,21 @@ HttpResponse GatewayHandler::Handle(const HttpRequest& request) {
 
     HttpResponse rsp = upstream_client_->Forward(ctx);
 
+    if (tracer_) {
+        tracer_->FinishSpan(
+            upstream_span,
+            "client",
+            ctx.upstream_path,
+            ctx.upstream,
+            rsp.status,
+            {
+                {"http.method", ctx.method},
+                {"request.id", ctx.request_id},
+                {"route.path", request.path}
+            }
+        );
+    }
+
     if (rate_limit_filter_ && rate_limit_decision.limit > 0) {
         rsp.headers["X-RateLimit-Limit"] = std::to_string(rate_limit_decision.limit);
         rsp.headers["X-RateLimit-Remaining"] = std::to_string(rate_limit_decision.remaining);
@@ -111,8 +193,9 @@ HttpResponse GatewayHandler::Handle(const HttpRequest& request) {
     }
 
     TGW_INFO(
-        "gateway forward finished, request_id={}, upstream={}, status={}",
+        "gateway forward finished, request_id={}, trace_id={}, upstream={}, status={}",
         ctx.request_id,
+        gateway_span.trace_id,
         ctx.upstream,
         rsp.status
     );

@@ -97,6 +97,7 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
 
     if (root["rate_limit"]) {
         auto rate_limit = root["rate_limit"];
+
         config.rate_limit.enabled = GetOrDefault<bool>(
             rate_limit,
             "enabled",
@@ -237,6 +238,46 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
                 "message",
                 config.governance.fallback.message
             );
+        }
+    }
+
+    config.tracing.enabled = config.gateway.enable_tracing;
+
+    if (root["tracing"]) {
+        auto tracing = root["tracing"];
+
+        config.tracing.enabled = GetOrDefault<bool>(
+            tracing,
+            "enabled",
+            config.tracing.enabled
+        );
+        config.tracing.service_name = GetOrDefault<std::string>(
+            tracing,
+            "service_name",
+            config.tracing.service_name
+        );
+        config.tracing.sample_ratio = GetOrDefault<double>(
+            tracing,
+            "sample_ratio",
+            config.tracing.sample_ratio
+        );
+        config.tracing.max_finished_spans = GetOrDefault<std::size_t>(
+            tracing,
+            "max_finished_spans",
+            config.tracing.max_finished_spans
+        );
+        config.tracing.accept_traceparent = GetOrDefault<bool>(
+            tracing,
+            "accept_traceparent",
+            config.tracing.accept_traceparent
+        );
+
+        if (config.tracing.sample_ratio < 0.0 || config.tracing.sample_ratio > 1.0) {
+            throw std::runtime_error("tracing.sample_ratio must be between 0.0 and 1.0");
+        }
+
+        if (config.tracing.max_finished_spans == 0) {
+            throw std::runtime_error("tracing.max_finished_spans must be positive");
         }
     }
 

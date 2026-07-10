@@ -13,6 +13,7 @@
 #include "tgw/governance/governance_upstream_client.h"
 #include "tgw/governance/rate_limit_filter.h"
 #include "tgw/observability/metrics.h"
+#include "tgw/observability/tracing.h"
 #include "tgw/service/file_meta_service.h"
 #include "tgw/service/task_service.h"
 #include "tgw/service/user_service.h"
@@ -52,7 +53,9 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
     auto token_service = std::make_shared<tgw::TokenService>(config.auth);
     auto auth_filter = std::make_shared<tgw::AuthFilter>(config.auth, token_service);
     auto rate_limit_filter = std::make_shared<tgw::RateLimitFilter>(config.rate_limit);
+
     auto metrics = std::make_shared<tgw::MetricsRegistry>();
+    auto tracer = std::make_shared<tgw::Tracer>(config.tracing);
 
     auto local_upstream_client = std::make_shared<tgw::LocalRpcUpstreamClient>(
         user_service,
@@ -71,7 +74,8 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         upstream_client,
         auth_filter,
         rate_limit_filter,
-        metrics
+        metrics,
+        tracer
     );
 
     auto admin_handler = std::make_shared<tgw::AdminHandler>(
@@ -118,6 +122,11 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         return tgw::BuildPrometheusResponse(metrics);
     });
 
+    router->AddRoute("GET", "/debug/traces", [tracer](const tgw::HttpRequest& req) {
+        (void)req;
+        return tgw::BuildTraceDebugResponse(tracer);
+    });
+
     router->SetFallback([gateway_handler](const tgw::HttpRequest& req) {
         return gateway_handler->Handle(req);
     });
@@ -142,13 +151,14 @@ int main(int argc, char* argv[]) {
         TGW_INFO("io threads: {}", config.runtime.io_threads);
         TGW_INFO("worker threads: {}", config.runtime.worker_threads);
         TGW_INFO("route count: {}", config.routes.size());
+
         TGW_INFO("auth enabled: {}", config.auth.enabled);
-        TGW_INFO("rate limit enabled: {}", config.rate_limit.enabled);
-        TGW_INFO("tracing enabled: {}", config.gateway.enable_tracing);
-        TGW_INFO("request timeout: {} ms", config.gateway.request_timeout_ms);
         TGW_INFO("token ttl: {} seconds", config.auth.token_ttl_seconds);
+
+        TGW_INFO("rate limit enabled: {}", config.rate_limit.enabled);
         TGW_INFO("rate limit window: {} seconds", config.rate_limit.window_seconds);
         TGW_INFO("rate limit default max requests: {}", config.rate_limit.default_max_requests);
+
         TGW_INFO("governance enabled: {}", config.governance.enabled);
         TGW_INFO("retry enabled: {}", config.governance.retry.enabled);
         TGW_INFO("retry max attempts: {}", config.governance.retry.max_attempts);
@@ -158,6 +168,13 @@ int main(int argc, char* argv[]) {
             config.governance.circuit_breaker.failure_threshold
         );
         TGW_INFO("fallback enabled: {}", config.governance.fallback.enabled);
+
+        TGW_INFO("tracing enabled: {}", config.tracing.enabled);
+        TGW_INFO("tracing service name: {}", config.tracing.service_name);
+        TGW_INFO("tracing sample ratio: {}", config.tracing.sample_ratio);
+        TGW_INFO("tracing max finished spans: {}", config.tracing.max_finished_spans);
+
+        TGW_INFO("request timeout: {} ms", config.gateway.request_timeout_ms);
         TGW_INFO("==================================================");
 
         auto router = BuildRouter(config);

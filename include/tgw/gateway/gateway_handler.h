@@ -5,14 +5,12 @@
 #include "tgw/gateway/upstream_client.h"
 #include "tgw/governance/rate_limit_filter.h"
 #include "tgw/observability/metrics.h"
+#include "tgw/observability/tracing.h"
 
 #include <memory>
 
 namespace tgw {
 
-// GatewayHandler 是真正的网关业务入口。
-// Router 只负责精确路由，比如 /health、/routes。
-// GatewayHandler 负责处理 /api/* 这类动态服务路由。
 class GatewayHandler {
 public:
     GatewayHandler(
@@ -20,7 +18,8 @@ public:
         UpstreamClientPtr upstream_client,
         AuthFilterPtr auth_filter,
         RateLimitFilterPtr rate_limit_filter,
-        MetricsRegistryPtr metrics
+        MetricsRegistryPtr metrics,
+        TracerPtr tracer
     );
 
     HttpResponse Handle(const HttpRequest& request);
@@ -31,6 +30,7 @@ private:
     AuthFilterPtr auth_filter_;
     RateLimitFilterPtr rate_limit_filter_;
     MetricsRegistryPtr metrics_;
+    TracerPtr tracer_;
 };
 
 } // namespace tgw
