@@ -87,6 +87,9 @@ private:
     std::string ExtractSpanIdFromTraceParent(const std::string& traceparent) const;
 
     uint64_t NowUnixMs() const;
+    void ExportSpan(const FinishedSpan& span) const;
+    std::string BuildOtlpJson(const FinishedSpan& span) const;
+    void PostOtlpJson(const std::string& payload) const;
 
 private:
     TracingConfig config_;

@@ -97,6 +97,11 @@ tracing:
   max_finished_spans: 1024
   accept_traceparent: true
   expose_debug_headers: false
+  otlp_exporter_enabled: false
+  otlp_host: "127.0.0.1"
+  otlp_http_port: 4318
+  otlp_path: "/v1/traces"
+  otlp_timeout_ms: 1000
 
 routes:
   - name: "user-service-route"

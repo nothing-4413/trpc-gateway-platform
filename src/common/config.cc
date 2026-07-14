@@ -403,6 +403,31 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
             "expose_debug_headers",
             config.tracing.expose_debug_headers
         );
+        config.tracing.otlp_exporter_enabled = GetOrDefault<bool>(
+            tracing,
+            "otlp_exporter_enabled",
+            config.tracing.otlp_exporter_enabled
+        );
+        config.tracing.otlp_host = GetOrDefault<std::string>(
+            tracing,
+            "otlp_host",
+            config.tracing.otlp_host
+        );
+        config.tracing.otlp_http_port = GetOrDefault<uint16_t>(
+            tracing,
+            "otlp_http_port",
+            config.tracing.otlp_http_port
+        );
+        config.tracing.otlp_path = GetOrDefault<std::string>(
+            tracing,
+            "otlp_path",
+            config.tracing.otlp_path
+        );
+        config.tracing.otlp_timeout_ms = GetOrDefault<int>(
+            tracing,
+            "otlp_timeout_ms",
+            config.tracing.otlp_timeout_ms
+        );
 
         if (config.tracing.sample_ratio < 0.0 || config.tracing.sample_ratio > 1.0) {
             throw std::runtime_error("tracing.sample_ratio must be between 0.0 and 1.0");
@@ -410,6 +435,10 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
 
         if (config.tracing.max_finished_spans == 0) {
             throw std::runtime_error("tracing.max_finished_spans must be positive");
+        }
+
+        if (config.tracing.otlp_timeout_ms <= 0) {
+            throw std::runtime_error("tracing.otlp_timeout_ms must be positive");
         }
     }
 

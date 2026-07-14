@@ -1,15 +1,25 @@
 #include "tgw/observability/tracing.h"
 
+#include "tgw/common/logger.h"
 #include "tgw/common/status.h"
 
 #include <chrono>
+#include <exception>
 #include <iomanip>
 #include <random>
 #include <sstream>
+#include <string>
+#include <thread>
+#include <utility>
+
+#include <boost/asio.hpp>
 
 namespace tgw {
 
 namespace {
+
+namespace asio = boost::asio;
+using tcp = asio::ip::tcp;
 
 std::string JsonKV(const std::string& key, const std::string& value) {
     std::ostringstream out;
@@ -137,6 +147,14 @@ void Tracer::FinishSpan(
 
     while (finished_spans_.size() > config_.max_finished_spans) {
         finished_spans_.pop_front();
+    }
+
+    if (config_.otlp_exporter_enabled) {
+        TracingConfig export_config = config_;
+        std::thread([export_config = std::move(export_config), finished]() {
+            Tracer exporter(export_config);
+            exporter.ExportSpan(finished);
+        }).detach();
     }
 }
 
@@ -325,6 +343,98 @@ uint64_t Tracer::NowUnixMs() const {
             std::chrono::system_clock::now().time_since_epoch()
         ).count()
     );
+}
+
+void Tracer::ExportSpan(const FinishedSpan& span) const {
+    try {
+        PostOtlpJson(BuildOtlpJson(span));
+    } catch (const std::exception& e) {
+        TGW_WARN(
+            "otlp span export failed, trace_id={}, span_id={}, error={}",
+            span.trace_id,
+            span.span_id,
+            e.what()
+        );
+    }
+}
+
+std::string Tracer::BuildOtlpJson(const FinishedSpan& span) const {
+    uint64_t start_ns = span.start_unix_ms * 1000000ULL;
+    uint64_t end_ns = (span.start_unix_ms + span.duration_ms) * 1000000ULL;
+    int kind = span.kind == "server" ? 2 : 3;
+
+    std::ostringstream out;
+    out << "{";
+    out << "\"resourceSpans\":[{";
+    out << "\"resource\":{\"attributes\":[";
+    out << "{\"key\":\"service.name\",\"value\":{\"stringValue\":\""
+        << JsonEscape(span.service_name) << "\"}}";
+    out << "]},";
+    out << "\"scopeSpans\":[{";
+    out << "\"scope\":{\"name\":\"tgw-gateway-platform\",\"version\":\"0.1.0\"},";
+    out << "\"spans\":[{";
+    out << "\"traceId\":\"" << JsonEscape(span.trace_id) << "\",";
+    out << "\"spanId\":\"" << JsonEscape(span.span_id) << "\",";
+    if (!span.parent_span_id.empty()) {
+        out << "\"parentSpanId\":\"" << JsonEscape(span.parent_span_id) << "\",";
+    }
+    out << "\"name\":\"" << JsonEscape(span.name) << "\",";
+    out << "\"kind\":" << kind << ",";
+    out << "\"startTimeUnixNano\":\"" << start_ns << "\",";
+    out << "\"endTimeUnixNano\":\"" << end_ns << "\",";
+    out << "\"attributes\":[";
+
+    size_t attr_count = 0;
+    auto append_attr = [&](const std::string& key, const std::string& value) {
+        if (attr_count++ > 0) {
+            out << ",";
+        }
+        out << "{\"key\":\"" << JsonEscape(key) << "\",\"value\":{\"stringValue\":\""
+            << JsonEscape(value) << "\"}}";
+    };
+
+    append_attr("http.route", span.path);
+    append_attr("upstream", span.upstream);
+    append_attr("http.status_code", std::to_string(span.status));
+    append_attr("duration_ms", std::to_string(span.duration_ms));
+
+    for (const auto& attr : span.attributes) {
+        append_attr(attr.first, attr.second);
+    }
+
+    out << "],";
+    out << "\"status\":{\"code\":" << (span.status >= 500 ? 2 : 1) << "}";
+    out << "}]}]}]}";
+    out << "}";
+    return out.str();
+}
+
+void Tracer::PostOtlpJson(const std::string& payload) const {
+    asio::io_context io_context;
+    tcp::resolver resolver(io_context);
+    tcp::socket socket(io_context);
+
+    auto endpoints = resolver.resolve(
+        config_.otlp_host,
+        std::to_string(config_.otlp_http_port)
+    );
+    asio::connect(socket, endpoints);
+
+    std::ostringstream request;
+    request << "POST " << config_.otlp_path << " HTTP/1.1\r\n";
+    request << "Host: " << config_.otlp_host << ":" << config_.otlp_http_port << "\r\n";
+    request << "Content-Type: application/json\r\n";
+    request << "Content-Length: " << payload.size() << "\r\n";
+    request << "Connection: close\r\n";
+    request << "\r\n";
+    request << payload;
+
+    auto raw = request.str();
+    asio::write(socket, asio::buffer(raw));
+
+    boost::system::error_code ignored;
+    socket.shutdown(tcp::socket::shutdown_both, ignored);
+    socket.close(ignored);
 }
 
 HttpResponse BuildTraceDebugResponse(const TracerPtr& tracer) {

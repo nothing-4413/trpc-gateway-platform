@@ -3,6 +3,7 @@
 #include "tgw/common/status.h"
 
 #include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -127,7 +128,14 @@ HttpResponse AdminHandler::Runtime(const HttpRequest& request) const {
     data << "\"sample_ratio\":" << config_.tracing.sample_ratio << ",";
     data << "\"max_finished_spans\":" << config_.tracing.max_finished_spans << ",";
     data << "\"accept_traceparent\":"
-         << BoolToJson(config_.tracing.accept_traceparent);
+         << BoolToJson(config_.tracing.accept_traceparent) << ",";
+    data << "\"otlp_exporter_enabled\":"
+         << BoolToJson(config_.tracing.otlp_exporter_enabled) << ",";
+    data << "\"otlp_endpoint\":\""
+         << JsonEscape(config_.tracing.otlp_host + ":" +
+                       std::to_string(config_.tracing.otlp_http_port) +
+                       config_.tracing.otlp_path)
+         << "\"";
     data << "}";
 
     data << "}";
@@ -199,6 +207,8 @@ HttpResponse AdminHandler::Features(const HttpRequest& request) const {
     data << "\"remote_user_service_enabled\":"
          << BoolToJson(config_.user_service_rpc.enabled) << ",";
     data << "\"tracing_enabled\":" << BoolToJson(config_.tracing.enabled) << ",";
+    data << "\"otlp_exporter_enabled\":"
+         << BoolToJson(config_.tracing.otlp_exporter_enabled) << ",";
     data << "\"metrics_enabled\":true,";
     data << "\"admin_enabled\":true";
     data << "}";

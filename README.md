@@ -15,7 +15,7 @@
 - 限流：支持进程内固定窗口和 Redis 分布式固定窗口，支持默认规则与路径级规则，超限返回 42900。
 - 服务治理：支持可取消 Deadline、重试、熔断和 fallback 降级。
 - Prometheus metrics：暴露 `/metrics`，记录请求数、状态码、耗时等指标。
-- Debug tracing：暴露 `/debug/traces`，用于查看请求链路，生产默认不回传调试响应头。
+- Debug tracing / OpenTelemetry：暴露 `/debug/traces`，用于查看请求链路，支持 OTLP/HTTP 导出到 Jaeger，生产默认不回传调试响应头。
 - Admin 接口：暴露 `/admin/runtime`、`/admin/routes`、`/admin/features`，需要 Bearer token 访问。
 - Docker Compose 配置：提供 Prometheus / Grafana 可观测性部署文件。
 - Benchmark：提供 hey / wrk 压测脚本与 CentOS 实测结果。
@@ -72,6 +72,7 @@ GatewayHandler
 20. Redis 分布式限流：基于 Redis `INCR` / `EXPIRE` / `TTL` 实现跨实例固定窗口限流
 21. MySQL 持久化与 RBAC：用户仓储抽象、MySQL 用户表、JWT role claim、路径级权限控制
 22. GoogleTest 与 GitHub Actions：JWT/RBAC 单测、CMake 构建、`ctest` 自动验证
+23. OpenTelemetry 导出到 Jaeger：完成 span 后异步 OTLP/HTTP 导出到 Jaeger `/v1/traces`
 
 ## 构建运行
 

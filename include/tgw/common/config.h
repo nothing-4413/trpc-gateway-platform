@@ -129,6 +129,12 @@ struct TracingConfig {
     // 是否解析 W3C traceparent header。
     bool accept_traceparent = true;
     bool expose_debug_headers = false;
+
+    bool otlp_exporter_enabled = false;
+    std::string otlp_host = "127.0.0.1";
+    uint16_t otlp_http_port = 4318;
+    std::string otlp_path = "/v1/traces";
+    int otlp_timeout_ms = 1000;
 };
 
 struct RouteConfig {

@@ -244,6 +244,13 @@ int main(int argc, char* argv[]) {
         TGW_INFO("tracing service name: {}", config.tracing.service_name);
         TGW_INFO("tracing sample ratio: {}", config.tracing.sample_ratio);
         TGW_INFO("tracing max finished spans: {}", config.tracing.max_finished_spans);
+        TGW_INFO("otlp exporter enabled: {}", config.tracing.otlp_exporter_enabled);
+        TGW_INFO(
+            "otlp endpoint: {}:{}{}",
+            config.tracing.otlp_host,
+            config.tracing.otlp_http_port,
+            config.tracing.otlp_path
+        );
 
         TGW_INFO("request timeout: {} ms", config.gateway.request_timeout_ms);
         TGW_INFO("remote user service enabled: {}", config.user_service_rpc.enabled);
