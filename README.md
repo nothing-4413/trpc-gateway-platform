@@ -73,6 +73,7 @@ GatewayHandler
 21. MySQL 持久化与 RBAC：用户仓储抽象、MySQL 用户表、JWT role claim、路径级权限控制
 22. GoogleTest 与 GitHub Actions：JWT/RBAC 单测、CMake 构建、`ctest` 自动验证
 23. OpenTelemetry 导出到 Jaeger：完成 span 后异步 OTLP/HTTP 导出到 Jaeger `/v1/traces`
+24. Release 环境压测：提供 Release 构建、启动、hey 压测、metrics/traces 采集脚本
 
 ## 构建运行
 
@@ -117,6 +118,12 @@ curl -s -X POST http://127.0.0.1:8080/api/user/login \
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j2
 ctest --test-dir build --output-on-failure
+```
+
+Release 压测：
+
+```bash
+bash benchmark/run_release_benchmark.sh
 ```
 
 健康检查成功返回：

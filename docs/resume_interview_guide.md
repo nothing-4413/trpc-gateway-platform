@@ -42,7 +42,7 @@ UserService 后续被拆成了可独立运行的 `tgw_user_service` 进程。Gat
 
 可观测性方面，项目暴露了 `/metrics`，Prometheus 可以抓取请求数、状态码、耗时等指标；`/debug/traces` 可以查看调试链路。Tracing 模块还支持把 FinishedSpan 异步转换成 OpenTelemetry OTLP/HTTP payload，发送到 Jaeger collector 的 `/v1/traces`。`/admin/runtime`、`/admin/routes`、`/admin/features` 可以查看运行时配置和路由状态。生产配置默认不向响应头暴露 `X-Trace-Id` / `X-Span-Id` 这类调试信息。
 
-项目最后在 CentOS 虚拟机里用 CMake 原生编译运行，并用 hey 做压测。`/health` 在 5000 请求、50 并发下达到约 32681 req/s；限流验证中登录接口前 20 次返回 200，后 10 次返回 429；服务治理验证中观察到了重试失败、熔断打开和 fallback 降级。
+项目最后在 CentOS 虚拟机里用 CMake 原生编译运行，并用 hey 做压测。`/health` 在 5000 请求、50 并发下达到约 32681 req/s；限流验证中登录接口前 20 次返回 200，后 10 次返回 429；服务治理验证中观察到了重试失败、熔断打开和 fallback 降级。后续我又补了 Release 压测脚本，用 `-DCMAKE_BUILD_TYPE=Release` 构建并自动采集 `/health`、`/api/user/profile`、metrics 和 traces 结果。
 
 自动化测试方面，我补了 GoogleTest 单元测试，重点覆盖 JWT 签发校验、token 篡改拒绝、RBAC admin/user 权限分支；GitHub Actions 会在 main 分支 push 或 PR 时安装依赖、执行 CMake 构建并运行 `ctest`。
 

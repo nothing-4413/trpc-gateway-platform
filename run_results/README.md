@@ -23,6 +23,7 @@
 - `/api/user/profile`，1000 请求，20 并发：20 个 200，980 个 429，用于验证限流生效。
 - `/api/user/login` 限流验证：前 20 次返回 200，后 10 次返回 429。
 - 服务治理验证：出现 `all retry attempts failed`、`circuit breaker open`、`X-Governance-Fallback: true`、`degraded=true`，验证通过。
+- Release 压测可通过 `benchmark/run_release_benchmark.sh` 生成 `release_*` 结果文件。
 
 ## 文件说明
 
@@ -38,6 +39,7 @@
 - `metrics_after_verify.txt`：验证后的 metrics。
 - `traces_after_benchmark.json`：压测后的 traces。
 - `traces_after_verify.json`：验证后的 traces。
+- `release_*`：Release 构建压测结果，由 `benchmark/run_release_benchmark.sh` 生成。
 
 ## 构建运行命令
 
@@ -49,4 +51,11 @@ pkill -9 tgw_gateway 2>/dev/null || true
 nohup ./build/tgw_gateway --config=configs/gateway.yaml > gateway.log 2>&1 &
 sleep 1
 curl -v --max-time 3 http://127.0.0.1:8080/health
+```
+
+Release 压测命令：
+
+```bash
+cd /root/code/trpc-gateway-platform
+bash benchmark/run_release_benchmark.sh
 ```
