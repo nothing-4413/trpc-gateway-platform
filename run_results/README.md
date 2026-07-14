@@ -24,6 +24,8 @@
 - `/api/user/login` 限流验证：前 20 次返回 200，后 10 次返回 429。
 - 服务治理验证：出现 `all retry attempts failed`、`circuit breaker open`、`X-Governance-Fallback: true`、`degraded=true`，验证通过。
 - Release 压测可通过 `benchmark/run_release_benchmark.sh` 生成 `release_*` 结果文件。
+- Release `/health`，10000 请求，100 并发：Requests/sec 约 34590，全部 200。
+- Release `/api/user/profile`，1000 请求，50 并发：Requests/sec 约 22868，其中 100 个 200、900 个 429，用于验证限流在高并发下生效。
 
 ## 文件说明
 

@@ -68,14 +68,15 @@ class HttpSession : public std::enable_shared_from_this<HttpSession> {
 public:
     HttpSession(
         tcp::socket socket,
+        asio::io_context& io_context,
         ServerConfig server_config,
         std::shared_ptr<Router> router,
         asio::thread_pool& worker_pool,
         std::function<std::string()> request_id_generator
     )
         : socket_(std::move(socket)),
-          read_timer_(socket_.get_executor()),
-          write_timer_(socket_.get_executor()),
+          read_timer_(io_context),
+          write_timer_(io_context),
           server_config_(std::move(server_config)),
           router_(std::move(router)),
           worker_pool_(worker_pool),
@@ -313,6 +314,7 @@ void HttpServer::DoAccept() {
         } else {
             auto session = std::make_shared<HttpSession>(
                 std::move(socket),
+                io_context_,
                 server_config_,
                 router_,
                 worker_pool_,

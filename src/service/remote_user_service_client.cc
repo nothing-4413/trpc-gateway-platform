@@ -102,7 +102,7 @@ tgw::rpc::LoginResponse RemoteUserServiceClient::Login(
         TGW_INFO(
             "remote UserService.Login finished, request_id={}, code={}",
             ctx.request_id,
-            response.meta().code()
+            static_cast<int>(response.meta().code())
         );
     } catch (const std::exception& e) {
         TGW_ERROR(
@@ -151,7 +151,7 @@ tgw::rpc::GetProfileResponse RemoteUserServiceClient::GetProfile(
         TGW_INFO(
             "remote UserService.GetProfile finished, request_id={}, code={}",
             ctx.request_id,
-            response.meta().code()
+            static_cast<int>(response.meta().code())
         );
     } catch (const std::exception& e) {
         TGW_ERROR(
