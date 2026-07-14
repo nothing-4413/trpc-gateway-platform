@@ -2,6 +2,9 @@
 
 #include "tgw/common/logger.h"
 
+#include <memory>
+#include <utility>
+
 namespace tgw {
 
 namespace {
@@ -30,6 +33,16 @@ bool FillTimeoutIfCancelled(tgw::rpc::RpcMeta* meta, const RpcContext& ctx) {
 
 } // namespace
 
+UserServiceImpl::UserServiceImpl()
+    : repository_(std::make_shared<InMemoryUserRepository>()) {}
+
+UserServiceImpl::UserServiceImpl(UserRepositoryPtr repository)
+    : repository_(std::move(repository)) {
+    if (!repository_) {
+        repository_ = std::make_shared<InMemoryUserRepository>();
+    }
+}
+
 tgw::rpc::LoginResponse UserServiceImpl::Login(
     const RpcContext& ctx,
     const tgw::rpc::LoginRequest& request
@@ -56,9 +69,8 @@ tgw::rpc::LoginResponse UserServiceImpl::Login(
         return response;
     }
 
-    // 当前阶段先写死一个用户。
-    // 后续模块会替换成 MySQL 用户表查询 + 密码哈希校验。
-    if (request.username() != "admin" || request.password() != "123456") {
+    auto user = repository_->FindByUsername(request.username());
+    if (!user.has_value() || user->password != request.password()) {
         FillMeta(
             response.mutable_meta(),
             tgw::rpc::RPC_UNAUTHORIZED,
@@ -68,9 +80,10 @@ tgw::rpc::LoginResponse UserServiceImpl::Login(
         return response;
     }
 
-    response.set_user_id(10001);
-    response.set_username("admin");
+    response.set_user_id(user->user_id);
+    response.set_username(user->username);
     response.set_token("mock-token-" + ctx.request_id);
+    response.set_role(user->role);
 
     FillMeta(
         response.mutable_meta(),
@@ -98,7 +111,8 @@ tgw::rpc::GetProfileResponse UserServiceImpl::GetProfile(
         return response;
     }
 
-    if (request.user_id() != 10001) {
+    auto user = repository_->FindById(request.user_id());
+    if (!user.has_value()) {
         FillMeta(
             response.mutable_meta(),
             tgw::rpc::RPC_NOT_FOUND,
@@ -109,10 +123,10 @@ tgw::rpc::GetProfileResponse UserServiceImpl::GetProfile(
     }
 
     auto* profile = response.mutable_profile();
-    profile->set_user_id(10001);
-    profile->set_username("admin");
-    profile->set_email("admin@example.com");
-    profile->set_role("admin");
+    profile->set_user_id(user->user_id);
+    profile->set_username(user->username);
+    profile->set_email(user->email);
+    profile->set_role(user->role);
 
     FillMeta(
         response.mutable_meta(),

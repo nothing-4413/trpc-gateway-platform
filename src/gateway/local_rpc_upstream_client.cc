@@ -408,13 +408,19 @@ HttpResponse LocalRpcUpstreamClient::ForwardUserService(const ForwardContext& ct
         auto rsp = user_service_->Login(rpc_ctx, req);
         std::string token = rsp.token();
         if (rsp.meta().code() == tgw::rpc::RPC_OK && token_service_) {
-            token = token_service_->IssueToken(rsp.user_id(), rsp.username(), ctx.request_id);
+            token = token_service_->IssueToken(
+                rsp.user_id(),
+                rsp.username(),
+                rsp.role(),
+                ctx.request_id
+            );
         }
 
         std::ostringstream data;
         data << "{"
              << JsonPair("user_id", std::to_string(rsp.user_id()), false) << ","
              << JsonPair("username", rsp.username(), true) << ","
+             << JsonPair("role", rsp.role(), true) << ","
              << JsonPair("token", token, true) << ","
              << JsonPair("token_type", "Bearer", true)
              << "}";

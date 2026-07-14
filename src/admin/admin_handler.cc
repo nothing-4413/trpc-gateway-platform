@@ -65,7 +65,16 @@ HttpResponse AdminHandler::Runtime(const HttpRequest& request) const {
 
     data << "\"auth\":{";
     data << "\"enabled\":" << BoolToJson(config_.auth.enabled) << ",";
-    data << "\"token_ttl_seconds\":" << config_.auth.token_ttl_seconds;
+    data << "\"token_ttl_seconds\":" << config_.auth.token_ttl_seconds << ",";
+    data << "\"rbac_enabled\":" << BoolToJson(config_.auth.rbac_enabled) << ",";
+    data << "\"rbac_rule_count\":" << config_.rbac_rules.size();
+    data << "},";
+
+    data << "\"mysql\":{";
+    data << "\"enabled\":" << BoolToJson(config_.mysql.enabled) << ",";
+    data << "\"host\":\"" << JsonEscape(config_.mysql.host) << "\",";
+    data << "\"port\":" << config_.mysql.port << ",";
+    data << "\"database\":\"" << JsonEscape(config_.mysql.database) << "\"";
     data << "},";
 
     data << "\"rate_limit\":{";
@@ -176,6 +185,8 @@ HttpResponse AdminHandler::Features(const HttpRequest& request) const {
 
     data << "{";
     data << "\"auth_enabled\":" << BoolToJson(config_.auth.enabled) << ",";
+    data << "\"rbac_enabled\":" << BoolToJson(config_.auth.rbac_enabled) << ",";
+    data << "\"mysql_enabled\":" << BoolToJson(config_.mysql.enabled) << ",";
     data << "\"rate_limit_enabled\":" << BoolToJson(config_.rate_limit.enabled) << ",";
     data << "\"redis_rate_limit_enabled\":"
          << BoolToJson(config_.rate_limit.redis.enabled) << ",";

@@ -17,6 +17,7 @@
 #include "tgw/service/file_meta_service.h"
 #include "tgw/service/remote_user_service_client.h"
 #include "tgw/service/task_service.h"
+#include "tgw/service/user_repository.h"
 #include "tgw/service/user_service.h"
 
 #include <exception>
@@ -78,14 +79,32 @@ std::shared_ptr<tgw::Router> BuildRouter(const tgw::AppConfig& config) {
         );
         user_service = std::make_shared<tgw::RemoteUserServiceClient>(config.user_service_rpc);
     } else {
+        tgw::UserRepositoryPtr user_repository;
+        if (config.mysql.enabled) {
+            TGW_INFO(
+                "using MySQL user repository at {}:{}/{}",
+                config.mysql.host,
+                config.mysql.port,
+                config.mysql.database
+            );
+            user_repository = std::make_shared<tgw::MysqlCliUserRepository>(config.mysql);
+        } else {
+            TGW_INFO("using in-memory user repository");
+            user_repository = std::make_shared<tgw::InMemoryUserRepository>();
+        }
+
         TGW_INFO("using in-process UserService implementation");
-        user_service = std::make_shared<tgw::UserServiceImpl>();
+        user_service = std::make_shared<tgw::UserServiceImpl>(user_repository);
     }
     auto file_meta_service = std::make_shared<tgw::FileMetaServiceImpl>();
     auto task_service = std::make_shared<tgw::TaskServiceImpl>();
 
     auto token_service = std::make_shared<tgw::TokenService>(config.auth);
-    auto auth_filter = std::make_shared<tgw::AuthFilter>(config.auth, token_service);
+    auto auth_filter = std::make_shared<tgw::AuthFilter>(
+        config.auth,
+        config.rbac_rules,
+        token_service
+    );
     auto rate_limit_filter = std::make_shared<tgw::RateLimitFilter>(config.rate_limit);
 
     auto metrics = std::make_shared<tgw::MetricsRegistry>();
@@ -200,7 +219,12 @@ int main(int argc, char* argv[]) {
         TGW_INFO("route count: {}", config.routes.size());
 
         TGW_INFO("auth enabled: {}", config.auth.enabled);
+        TGW_INFO("rbac enabled: {}", config.auth.rbac_enabled);
+        TGW_INFO("rbac rule count: {}", config.rbac_rules.size());
         TGW_INFO("token ttl: {} seconds", config.auth.token_ttl_seconds);
+
+        TGW_INFO("mysql enabled: {}", config.mysql.enabled);
+        TGW_INFO("mysql endpoint: {}:{}/{}", config.mysql.host, config.mysql.port, config.mysql.database);
 
         TGW_INFO("rate limit enabled: {}", config.rate_limit.enabled);
         TGW_INFO("rate limit window: {} seconds", config.rate_limit.window_seconds);

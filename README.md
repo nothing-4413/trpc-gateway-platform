@@ -10,7 +10,8 @@
 - 配置化路由：通过 YAML 配置前缀路由、上游服务、超时时间和路径裁剪。
 - RPC 服务抽象：使用 Protobuf 定义 UserService、FileMetaService、TaskService，UserService 支持本地实现与跨进程 tRPC-like TCP RPC 实现切换。
 - Gateway 到 Local RPC：将 HTTP JSON / Query 转换为 Protobuf 请求并调用本地服务实现。
-- Token 鉴权：登录签发 HS256 JWT，网关统一校验 Authorization Bearer token。
+- Token 鉴权与 RBAC：登录签发携带 role claim 的 HS256 JWT，网关统一校验 Authorization Bearer token，并按路径规则做角色权限控制。
+- MySQL 持久化：UserService 支持内存仓储与 MySQL 用户表仓储切换。
 - 限流：支持进程内固定窗口和 Redis 分布式固定窗口，支持默认规则与路径级规则，超限返回 42900。
 - 服务治理：支持可取消 Deadline、重试、熔断和 fallback 降级。
 - Prometheus metrics：暴露 `/metrics`，记录请求数、状态码、耗时等指标。
@@ -68,6 +69,7 @@ GatewayHandler
 18. 可取消 Deadline：Deadline 状态贯穿 Gateway、治理层、本地 RPC 和服务实现
 19. 跨进程 UserService：独立 `tgw_user_service` 进程 + Gateway 远程 RPC client
 20. Redis 分布式限流：基于 Redis `INCR` / `EXPIRE` / `TTL` 实现跨实例固定窗口限流
+21. MySQL 持久化与 RBAC：用户仓储抽象、MySQL 用户表、JWT role claim、路径级权限控制
 
 ## 构建运行
 
@@ -94,6 +96,16 @@ curl -v --max-time 3 http://127.0.0.1:8080/health
 ./build/tgw_user_service --host=0.0.0.0 --port=9001
 # 将 configs/gateway.yaml 中 user_service_rpc.enabled 改为 true 后启动网关
 ./build/tgw_gateway --config=configs/gateway.yaml
+```
+
+MySQL / RBAC 验证：
+
+```bash
+# 启动 MySQL 后，将 configs/gateway.yaml 中 mysql.enabled 改为 true
+# admin / 123456 具备 admin 角色，alice / 123456 为普通 user 角色
+curl -s -X POST http://127.0.0.1:8080/api/user/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","password":"123456"}'
 ```
 
 健康检查成功返回：

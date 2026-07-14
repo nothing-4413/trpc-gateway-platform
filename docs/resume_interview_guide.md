@@ -12,7 +12,8 @@
 - 补齐 HTTP 连接生命周期治理，支持 Keep-Alive、读写超时、Body Limit 和 SIGINT/SIGTERM 优雅退出。
 - 实现 YAML 配置化路由系统，支持前缀匹配、最长路径优先、strip prefix 和 upstream 抽象。
 - 使用 Protobuf 定义 User / FileMeta / Task 服务接口，实现 Gateway 到本地 RPC 服务的协议转换与调度，并将 UserService 扩展为可独立部署的跨进程 RPC 服务。
-- 实现 Token 鉴权过滤器，登录接口签发 HS256 JWT，业务接口统一校验 Bearer token。
+- 实现 Token 鉴权与 RBAC，登录接口签发携带 role claim 的 HS256 JWT，业务接口统一校验 Bearer token，并按路径规则做角色权限控制。
+- 引入 UserRepository 抽象，支持内存用户仓储与 MySQL 用户表仓储切换。
 - 实现进程内固定窗口和 Redis 分布式固定窗口限流，支持默认规则和路径级规则，超限统一返回 42900。
 - 实现服务治理能力，包括可取消 Deadline、重试、熔断和 fallback 降级，降低下游异常对网关的影响。
 - 接入 Prometheus metrics、Debug traces 和 Admin 管理接口，提升运行时可观测性。
@@ -30,7 +31,9 @@ UserService 后续被拆成了可独立运行的 `tgw_user_service` 进程。Gat
 
 路由层是配置化的，配置文件里可以定义 `/api/user`、`/api/file`、`/api/task` 这样的前缀路由，每条路由可以配置 upstream、timeout 和是否 strip prefix。路由匹配时采用最长前缀优先，避免 `/api/user/admin` 被 `/api/user` 提前匹配。
 
-鉴权模块采用过滤器设计。登录接口是 public path，登录成功后生成 HS256 JWT，其他业务接口和 Admin 接口要求携带 `Authorization: Bearer <token>`。鉴权成功后，网关会把用户信息注入 `ForwardContext`，后续服务可以基于这个上下文处理业务。
+鉴权模块采用过滤器设计。登录接口是 public path，登录成功后生成 HS256 JWT，token 中包含 user_id、username 和 role。其他业务接口和 Admin 接口要求携带 `Authorization: Bearer <token>`。鉴权成功后，网关会把用户信息和角色注入 `ForwardContext`，并根据 RBAC 路径规则判断当前角色是否允许访问，比如 `/admin` 和 `/api/task` 默认只允许 admin。
+
+用户数据层引入了 `IUserRepository` 抽象。默认环境用内存仓储保证项目开箱即跑；开启 `mysql.enabled` 后，UserService 会从 MySQL `users` 表读取用户、密码、邮箱和角色，用同一套登录和资料查询逻辑完成持久化切换。
 
 限流模块先实现了进程内固定窗口算法，支持默认额度和路径级规则。例如登录接口单独限制，业务接口也可以按路径配置额度。后续增强为 Redis 分布式固定窗口：开启配置后使用 Redis `INCR`、`EXPIRE` 和 `TTL` 维护跨实例计数，限流 key 可以基于用户 ID 或客户端 IP，超限会返回统一错误码 42900。
 

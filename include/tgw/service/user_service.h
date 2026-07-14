@@ -1,6 +1,7 @@
 #pragma once
 
 #include "tgw/rpc/rpc_context.h"
+#include "tgw/service/user_repository.h"
 
 #include "user.pb.h"
 
@@ -30,6 +31,9 @@ public:
 
 class UserServiceImpl : public IUserService {
 public:
+    UserServiceImpl();
+    explicit UserServiceImpl(UserRepositoryPtr repository);
+
     tgw::rpc::LoginResponse Login(
         const RpcContext& ctx,
         const tgw::rpc::LoginRequest& request
@@ -39,6 +43,9 @@ public:
         const RpcContext& ctx,
         const tgw::rpc::GetProfileRequest& request
     ) override;
+
+private:
+    UserRepositoryPtr repository_;
 };
 
 using UserServicePtr = std::shared_ptr<IUserService>;

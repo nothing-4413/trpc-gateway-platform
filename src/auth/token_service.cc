@@ -306,6 +306,7 @@ TokenService::TokenService(AuthConfig config)
 std::string TokenService::IssueToken(
     int64_t user_id,
     const std::string& username,
+    const std::string& role,
     const std::string& request_id
 ) {
     int64_t now = NowUnixSeconds();
@@ -315,6 +316,7 @@ std::string TokenService::IssueToken(
     payload << "{";
     payload << "\"sub\":" << user_id << ",";
     payload << "\"username\":\"" << JsonEscape(username) << "\",";
+    payload << "\"role\":\"" << JsonEscape(role) << "\",";
     payload << "\"iat\":" << now << ",";
     payload << "\"exp\":" << expires_at << ",";
     payload << "\"rid\":\"" << JsonEscape(request_id) << "\"";
@@ -353,6 +355,7 @@ std::optional<TokenRecord> TokenService::ValidateToken(const std::string& token)
 
     auto user_id = JsonIntValue(decoded_payload.value(), "sub");
     auto username = JsonStringValue(decoded_payload.value(), "username");
+    auto role = JsonStringValue(decoded_payload.value(), "role");
     auto issued_at = JsonIntValue(decoded_payload.value(), "iat");
     auto expires_at = JsonIntValue(decoded_payload.value(), "exp");
 
@@ -367,6 +370,7 @@ std::optional<TokenRecord> TokenService::ValidateToken(const std::string& token)
     TokenRecord record;
     record.user_id = user_id.value();
     record.username = username.value();
+    record.role = role.value_or("user");
     record.issued_at = issued_at.value();
     record.expires_at = expires_at.value();
 

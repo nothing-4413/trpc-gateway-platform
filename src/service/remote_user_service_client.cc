@@ -97,6 +97,7 @@ tgw::rpc::LoginResponse RemoteUserServiceClient::Login(
         response.set_user_id(value.value("user_id", 0));
         response.set_username(value.value("username", ""));
         response.set_token(value.value("token", ""));
+        response.set_role(value.value("role", "user"));
 
         TGW_INFO(
             "remote UserService.Login finished, request_id={}, code={}",

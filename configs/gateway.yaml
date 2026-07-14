@@ -28,16 +28,31 @@ user_service_rpc:
   port: 9001
   timeout_ms: 1000
 
+mysql:
+  enabled: false
+  host: "127.0.0.1"
+  port: 3306
+  user: "tgw"
+  password: "tgw"
+  database: "tgw_gateway"
+
 auth:
   enabled: true
   jwt_secret: "tgw-demo-secret"
   token_ttl_seconds: 7200
+  rbac_enabled: true
   public_paths:
     - "/health"
     - "/routes"
     - "/metrics"
     - "/debug/traces"
     - "/api/user/login"
+
+rbac:
+  - path: "/admin"
+    roles: ["admin"]
+  - path: "/api/task"
+    roles: ["admin"]
 
 rate_limit:
   enabled: true

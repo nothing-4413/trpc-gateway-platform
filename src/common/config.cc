@@ -116,12 +116,23 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
         }
     }
 
+    if (root["mysql"]) {
+        auto mysql = root["mysql"];
+        config.mysql.enabled = GetOrDefault<bool>(mysql, "enabled", config.mysql.enabled);
+        config.mysql.host = GetOrDefault<std::string>(mysql, "host", config.mysql.host);
+        config.mysql.port = GetOrDefault<uint16_t>(mysql, "port", config.mysql.port);
+        config.mysql.user = GetOrDefault<std::string>(mysql, "user", config.mysql.user);
+        config.mysql.password = GetOrDefault<std::string>(mysql, "password", config.mysql.password);
+        config.mysql.database = GetOrDefault<std::string>(mysql, "database", config.mysql.database);
+    }
+
     config.auth.enabled = config.gateway.enable_auth;
 
     if (root["auth"]) {
         auto auth = root["auth"];
         config.auth.enabled = GetOrDefault<bool>(auth, "enabled", config.auth.enabled);
         config.auth.jwt_secret = GetOrDefault<std::string>(auth, "jwt_secret", config.auth.jwt_secret);
+        config.auth.rbac_enabled = GetOrDefault<bool>(auth, "rbac_enabled", config.auth.rbac_enabled);
         config.auth.token_ttl_seconds = GetOrDefault<int>(
             auth,
             "token_ttl_seconds",
@@ -144,6 +155,39 @@ AppConfig ConfigLoader::LoadFromFile(const std::string& path) {
 
                 config.auth.public_paths.push_back(path_item);
             }
+        }
+    }
+
+    if (root["rbac"]) {
+        const auto& rules = root["rbac"];
+        if (!rules.IsSequence()) {
+            throw std::runtime_error("rbac must be a yaml sequence");
+        }
+
+        config.rbac_rules.clear();
+        for (const auto& item : rules) {
+            RbacRuleConfig rule;
+            rule.path = GetOrDefault<std::string>(item, "path", "");
+            if (rule.path.empty()) {
+                throw std::runtime_error("rbac rule path cannot be empty");
+            }
+
+            if (!item["roles"] || !item["roles"].IsSequence()) {
+                throw std::runtime_error("rbac rule roles must be a yaml sequence");
+            }
+
+            for (const auto& role : item["roles"]) {
+                auto role_name = role.as<std::string>();
+                if (!role_name.empty()) {
+                    rule.roles.push_back(role_name);
+                }
+            }
+
+            if (rule.roles.empty()) {
+                throw std::runtime_error("rbac rule roles cannot be empty, path=" + rule.path);
+            }
+
+            config.rbac_rules.push_back(rule);
         }
     }
 

@@ -22,6 +22,7 @@ message LoginResponse {
   int64 user_id = 2;
   string username = 3;
   string token = 4;
+  string role = 5;
 }
 
 message GetProfileRequest {

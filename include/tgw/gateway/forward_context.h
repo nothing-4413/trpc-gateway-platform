@@ -54,6 +54,7 @@ struct ForwardContext {
         copy_header("X-Parent-Span-Id");
         copy_header("X-Username");
         copy_header("X-User-Id");
+        copy_header("X-Role");
         copy_header("Content-Type");
         copy_header("traceparent");
 

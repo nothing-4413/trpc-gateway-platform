@@ -92,7 +92,8 @@ json HandleRequest(const json& request, const std::shared_ptr<tgw::IUserService>
             {"meta", MetaToJson(response.meta())},
             {"user_id", response.user_id()},
             {"username", response.username()},
-            {"token", response.token()}
+            {"token", response.token()},
+            {"role", response.role()}
         };
     }
 

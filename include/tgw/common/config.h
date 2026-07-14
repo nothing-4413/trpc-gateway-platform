@@ -46,9 +46,24 @@ struct AuthConfig {
     bool enabled = true;
     std::string jwt_secret = "tgw-dev-secret";
     int token_ttl_seconds = 7200;
+    bool rbac_enabled = true;
     std::vector<std::string> public_paths = {
         "/api/user/login"
     };
+};
+
+struct RbacRuleConfig {
+    std::string path;
+    std::vector<std::string> roles;
+};
+
+struct MysqlConfig {
+    bool enabled = false;
+    std::string host = "127.0.0.1";
+    uint16_t port = 3306;
+    std::string user = "tgw";
+    std::string password = "tgw";
+    std::string database = "tgw_gateway";
 };
 
 struct RateLimitRuleConfig {
@@ -131,7 +146,9 @@ struct AppConfig {
     LogConfig log;
     GatewayConfig gateway;
     UserServiceRpcConfig user_service_rpc;
+    MysqlConfig mysql;
     AuthConfig auth;
+    std::vector<RbacRuleConfig> rbac_rules;
     RateLimitConfig rate_limit;
     GovernanceConfig governance;
     TracingConfig tracing;

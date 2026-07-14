@@ -12,6 +12,7 @@ namespace tgw {
 struct TokenRecord {
     int64_t user_id = 0;
     std::string username;
+    std::string role;
     int64_t issued_at = 0;
     int64_t expires_at = 0;
 };
@@ -23,6 +24,7 @@ public:
     std::string IssueToken(
         int64_t user_id,
         const std::string& username,
+        const std::string& role,
         const std::string& request_id
     );
 

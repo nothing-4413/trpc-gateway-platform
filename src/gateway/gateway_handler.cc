@@ -116,6 +116,7 @@ HttpResponse GatewayHandler::Handle(const HttpRequest& request) {
         if (auth_result.user_id > 0) {
             forward_request.headers["X-User-Id"] = std::to_string(auth_result.user_id);
             forward_request.headers["X-Username"] = auth_result.username;
+            forward_request.headers["X-Role"] = auth_result.role;
         }
     }
 

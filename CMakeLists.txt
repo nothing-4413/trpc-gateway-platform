@@ -60,6 +60,7 @@ target_link_libraries(tgw_proto
 )
 
 add_library(tgw_rpc_core
+    src/service/user_repository.cc
     src/service/user_service.cc
     src/service/file_meta_service.cc
     src/service/task_service.cc
