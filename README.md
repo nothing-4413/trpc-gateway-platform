@@ -19,6 +19,7 @@
 - Admin 接口：暴露 `/admin/runtime`、`/admin/routes`、`/admin/features`，需要 Bearer token 访问。
 - Docker Compose 配置：提供 Prometheus / Grafana 可观测性部署文件。
 - Benchmark：提供 hey / wrk 压测脚本与 CentOS 实测结果。
+- Testing / CI：接入 GoogleTest 单元测试和 GitHub Actions 自动构建验证。
 
 ## 架构图
 
@@ -70,6 +71,7 @@ GatewayHandler
 19. 跨进程 UserService：独立 `tgw_user_service` 进程 + Gateway 远程 RPC client
 20. Redis 分布式限流：基于 Redis `INCR` / `EXPIRE` / `TTL` 实现跨实例固定窗口限流
 21. MySQL 持久化与 RBAC：用户仓储抽象、MySQL 用户表、JWT role claim、路径级权限控制
+22. GoogleTest 与 GitHub Actions：JWT/RBAC 单测、CMake 构建、`ctest` 自动验证
 
 ## 构建运行
 
@@ -106,6 +108,14 @@ MySQL / RBAC 验证：
 curl -s -X POST http://127.0.0.1:8080/api/user/login \
   -H "Content-Type: application/json" \
   -d '{"username":"alice","password":"123456"}'
+```
+
+单元测试：
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j2
+ctest --test-dir build --output-on-failure
 ```
 
 健康检查成功返回：

@@ -29,7 +29,16 @@ FetchContent_Declare(
     URL https://github.com/nlohmann/json/archive/refs/tags/v3.11.3.tar.gz
 )
 
-FetchContent_MakeAvailable(spdlog yaml-cpp nlohmann_json)
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
+)
+
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(spdlog yaml-cpp nlohmann_json googletest)
+
+enable_testing()
 
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(Protobuf REQUIRED)
@@ -152,6 +161,26 @@ target_link_libraries(tgw_user_service
         Threads::Threads
 )
 
+add_executable(tgw_unit_tests
+    tests/auth_filter_test.cc
+    tests/token_service_test.cc
+    src/auth/auth_filter.cc
+    src/auth/token_service.cc
+)
+
+target_include_directories(tgw_unit_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/include
+)
+
+target_link_libraries(tgw_unit_tests
+    PRIVATE
+        GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(tgw_unit_tests)
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(tgw_gateway PRIVATE
         -Wall
@@ -166,6 +195,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     )
 
     target_compile_options(tgw_user_service PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+    )
+
+    target_compile_options(tgw_unit_tests PRIVATE
         -Wall
         -Wextra
         -Wpedantic

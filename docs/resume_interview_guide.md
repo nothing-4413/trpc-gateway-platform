@@ -17,6 +17,7 @@
 - 实现进程内固定窗口和 Redis 分布式固定窗口限流，支持默认规则和路径级规则，超限统一返回 42900。
 - 实现服务治理能力，包括可取消 Deadline、重试、熔断和 fallback 降级，降低下游异常对网关的影响。
 - 接入 Prometheus metrics、Debug traces 和 Admin 管理接口，提升运行时可观测性。
+- 接入 GoogleTest 与 GitHub Actions，覆盖 JWT/RBAC 核心逻辑并自动执行 CMake 构建和 `ctest`。
 - 编写 benchmark 脚本并在 CentOS 环境完成压测，保存完整 run_results。
 
 ## 面试讲解稿
@@ -42,6 +43,8 @@ UserService 后续被拆成了可独立运行的 `tgw_user_service` 进程。Gat
 可观测性方面，项目暴露了 `/metrics`，Prometheus 可以抓取请求数、状态码、耗时等指标；`/debug/traces` 可以查看调试链路；`/admin/runtime`、`/admin/routes`、`/admin/features` 可以查看运行时配置和路由状态。生产配置默认不向响应头暴露 `X-Trace-Id` / `X-Span-Id` 这类调试信息。
 
 项目最后在 CentOS 虚拟机里用 CMake 原生编译运行，并用 hey 做压测。`/health` 在 5000 请求、50 并发下达到约 32681 req/s；限流验证中登录接口前 20 次返回 200，后 10 次返回 429；服务治理验证中观察到了重试失败、熔断打开和 fallback 降级。
+
+自动化测试方面，我补了 GoogleTest 单元测试，重点覆盖 JWT 签发校验、token 篡改拒绝、RBAC admin/user 权限分支；GitHub Actions 会在 main 分支 push 或 PR 时安装依赖、执行 CMake 构建并运行 `ctest`。
 
 如果继续扩展，我会把当前进程内 token 缓存和限流计数替换成 Redis，把本地内存数据替换成 MySQL，并把更多服务从 LocalRpcUpstreamClient 拆成独立 gRPC 或 tRPC 服务。
 
