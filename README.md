@@ -160,12 +160,28 @@ curl -s "http://127.0.0.1:8080/api/user/profile?user_id=10001" \
 
 ## 压测结果摘要
 
-CentOS 原生 CMake 编译运行验证结果保存在 `run_results/`。
+CentOS 原生 CMake 编译运行验证结果保存在 `run_results/`，性能报告见 `docs/performance_report.md`。
+
+最新 Release 重测环境：
+
+- OS：CentOS Linux 8 on VMware。
+- CPU：8 vCPU，Intel(R) Core(TM) i9-14900HX。
+- 内存：2.7 GiB。
+- 编译器：GCC 8.5.0。
+- 构建类型：Release。
+- 压测工具：hey。
+
+最新 Release 重测结果：
+
+- `/health`，10000 请求，100 并发：34590.2847 req/s，平均延迟 2.8ms，P99 5.2ms，全部 200。
+- `/api/user/profile`，1000 请求，50 并发：22868.2743 req/s，平均延迟 2.0ms，P99 4.8ms，100 个 200、900 个 429。
+- `/api/user/profile` 的 429 为预期结果，用于验证限流在高并发下生效，不代表无锁性能上限。
+
+历史 Debug / 功能验证结果：
 
 - `/health`，1000 请求，20 并发：约 30658 req/s，全部 200。
 - `/health`，5000 请求，50 并发：约 32681 req/s，全部 200。
 - `/api/user/profile`，80 请求，10 并发：约 8590 req/s，全部 200。
-- `/api/user/profile`，1000 请求，20 并发：20 个 200，980 个 429，用于验证限流生效。
 - `/api/user/login` 限流验证：前 20 次返回 200，后 10 次返回 429。
 - 服务治理验证：出现 retry failed、circuit breaker open、fallback degraded 等关键日志，验证通过。
 
