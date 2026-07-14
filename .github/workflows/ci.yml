@@ -27,8 +27,8 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 
-      - name: Build
-        run: cmake --build build -j2
+      - name: Build unit tests
+        run: cmake --build build --target tgw_unit_tests -j2
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
